@@ -13,35 +13,7 @@
 #include <time.h>
 #include <unistd.h>
 
-/* Utility functions */
-#define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
-
-static void *xmalloc(size_t sz)
-{
-	void *ret;
-
-	ret = malloc(sz);
-	if (!ret)
-		abort();
-
-	return ret;
-}
-
-static void *xrealloc(void *ptr, size_t sz)
-{
-	void *ret;
-
-	ret = realloc(ptr, sz);
-	if (!ret)
-		abort();
-
-	return ret;
-}
-
-static void xfree(void *ptr)
-{
-	free(ptr);
-}
+#include "util.h"
 
 struct bench_results {
 	int dummy;
