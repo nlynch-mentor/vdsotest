@@ -1,4 +1,5 @@
 #define _GNU_SOURCE
+#include <errno.h>
 #include <error.h>
 #include <sched.h>
 #include <signal.h>
@@ -30,6 +31,39 @@ static void ctx_init_defaults(struct ctx *ctx)
 	};
 }
 
+static void expiration_handler(int sig, siginfo_t *si, void *uc)
+{
+	struct ctx *ctx = si->si_value.sival_ptr;
+	ctx->expired = 1;
+}
+
+static void ctx_start_timer(struct ctx *ctx)
+{
+	struct sigaction sa;
+	struct sigevent sev;
+	timer_t timer;
+
+	sa = (struct sigaction) {
+		.sa_flags = SA_SIGINFO,
+		.sa_sigaction = expiration_handler,
+	};
+
+	if (sigaction(SIGRTMAX, &sa, NULL))
+		error(EXIT_FAILURE, errno, "sigaction");
+
+	sev = (struct sigevent) {
+		.sigev_notify = SIGEV_SIGNAL,
+		.sigev_signo = SIGRTMAX,
+		.sigev_value.sival_ptr = ctx,
+	};
+
+	if (timer_create(CLOCK_MONOTONIC, &sev, &timer))
+		error(EXIT_FAILURE, errno, "timer_create");
+
+	if (timer_settime(timer, 0, &ctx->duration, NULL))
+		error(EXIT_FAILURE, errno, "timer_settime");
+}
+
 struct test_suite {
 	const char *name; /* name of the API under test */
 
@@ -50,12 +84,24 @@ struct test_suite {
 
 static int getcpu_bench(struct ctx *ctx, struct bench_results *res)
 {
-	return -1;
+	ctx_start_timer(ctx);
+
+	while (!ctx->expired) {
+
+	}
+
+	return 0;
 }
 
 static int getcpu_verify(struct ctx *ctx)
 {
-	return -1;
+	ctx_start_timer(ctx);
+
+	while (!ctx->expired) {
+
+	}
+
+	return 0;
 }
 
 static const struct test_suite getcpu_ts = {
