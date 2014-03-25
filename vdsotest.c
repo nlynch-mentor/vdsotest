@@ -3,6 +3,7 @@
 #include <error.h>
 #include <sched.h>
 #include <signal.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -43,6 +44,8 @@ static void ctx_start_timer(struct ctx *ctx)
 	struct sigevent sev;
 	timer_t timer;
 
+	ctx->expired = 0;
+
 	sa = (struct sigaction) {
 		.sa_flags = SA_SIGINFO,
 		.sa_sigaction = expiration_handler,
@@ -62,6 +65,11 @@ static void ctx_start_timer(struct ctx *ctx)
 
 	if (timer_settime(timer, 0, &ctx->duration, NULL))
 		error(EXIT_FAILURE, errno, "timer_settime");
+}
+
+static bool ctx_timer_expired(const struct ctx *ctx)
+{
+	return ctx->expired;
 }
 
 struct test_suite {
@@ -86,7 +94,7 @@ static int getcpu_bench(struct ctx *ctx, struct bench_results *res)
 {
 	ctx_start_timer(ctx);
 
-	while (!ctx->expired) {
+	while (!ctx_timer_expired(ctx)) {
 
 	}
 
@@ -97,7 +105,7 @@ static int getcpu_verify(struct ctx *ctx)
 {
 	ctx_start_timer(ctx);
 
-	while (!ctx->expired) {
+	while (!ctx_timer_expired(ctx)) {
 
 	}
 
