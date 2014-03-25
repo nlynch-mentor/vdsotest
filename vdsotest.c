@@ -164,25 +164,22 @@ static void getcpu_setup(const struct ctx *ctx)
 static void migrate(const struct ctx *ctx, cpu_set_t *cpus_allowed)
 {
 	unsigned int cpu;
-	cpu_set_t mask;
 
-	if (sched_getaffinity(getpid(), sizeof(mask), &mask))
+	if (sched_getaffinity(getpid(), sizeof(cpu_set_t), cpus_allowed))
 		error(EXIT_FAILURE, errno, "sched_getaffinity");
 
 	getcpu_syscall_nofail(&cpu, NULL);
 
-	assert(CPU_ISSET(cpu, &mask));
+	assert(CPU_ISSET(cpu, cpus_allowed));
 
-	CPU_CLR(cpu, &mask);
+	CPU_CLR(cpu, cpus_allowed);
 
-	if (CPU_COUNT(&mask) == 0) {
-		mask = ctx->cpus_allowed;
+	if (CPU_COUNT(cpus_allowed) == 0) {
+		*cpus_allowed = ctx->cpus_allowed;
 	}
 
-	if (sched_setaffinity(getpid(), sizeof(mask), &mask))
+	if (sched_setaffinity(getpid(), sizeof(cpu_set_t), cpus_allowed))
 		error(EXIT_FAILURE, errno, "sched_setaffinity");
-
-	*cpus_allowed = mask;
 }
 
 static int getcpu_bench(struct ctx *ctx, struct bench_results *res)
