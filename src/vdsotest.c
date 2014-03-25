@@ -300,7 +300,7 @@ int main(int argc, char **argv)
 
 	funcname = argv[2];
 
-	if (!strcmp(funcname, "bench")) 
+	if (!strcmp(funcname, "bench"))
 		ret = ts->bench(&ctx, &bench_res);
 	else if (!strcmp(funcname, "verify"))
 		ret = ts->verify(&ctx);
