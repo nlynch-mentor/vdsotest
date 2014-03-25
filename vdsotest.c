@@ -154,6 +154,15 @@ static void getcpu_setup(struct ctx *ctx)
 		error(EXIT_FAILURE, errno, "sched_setaffinity");
 }
 
+static unsigned int migrate_to_random_cpu(struct ctx *ctx)
+{
+	unsigned int cpu;
+
+	getcpu_syscall_nofail(&cpu, NULL);
+
+	return cpu;
+}
+
 static int getcpu_bench(struct ctx *ctx, struct bench_results *res)
 {
 	uint64_t vdsocalls;
@@ -186,7 +195,30 @@ static int getcpu_verify(struct ctx *ctx)
 	ctx_start_timer(ctx);
 
 	while (!ctx_timer_expired(ctx)) {
+		unsigned int target_cpu;
+		unsigned long loops;
+		unsigned long i;
 
+		target_cpu = migrate_to_random_cpu(ctx);
+		loops = random();
+
+		for (i = 0; i < loops && !ctx_timer_expired(ctx); i++) {
+			unsigned int cpu;
+
+			cpu = sched_getcpu();
+
+			if (cpu != target_cpu) {
+				error(EXIT_FAILURE, 0, "sched_getcpu returned "
+				      "%d, expecting %d\n", cpu, target_cpu);
+			}
+
+			getcpu_syscall_nofail(&cpu, NULL);
+
+			if (cpu != target_cpu) {
+				error(EXIT_FAILURE, 0, "SYS_getcpu returned "
+				      "%d, expecting %d\n", cpu, target_cpu);
+			}
+		}
 	}
 
 	return 0;
@@ -229,6 +261,8 @@ int main(int argc, char **argv)
 	const char *funcname;
 	struct ctx ctx;
 	int ret;
+
+	srandom(getpid());
 
 	ctx_init_defaults(&ctx);
 
