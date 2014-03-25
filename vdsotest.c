@@ -4,12 +4,44 @@
 #include <sched.h>
 #include <signal.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/syscall.h>
 #include <time.h>
+#include <unistd.h>
 
+/* Utility functions */
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
+
+static void *xmalloc(size_t sz)
+{
+	void *ret;
+
+	ret = malloc(sz);
+	if (!ret)
+		abort();
+
+	return ret;
+}
+
+static void *xrealloc(void *ptr, size_t sz)
+{
+	void *ret;
+
+	ret = realloc(ptr, sz);
+	if (!ret)
+		abort();
+
+	return ret;
+}
+
+static void xfree(void *ptr)
+{
+	free(ptr);
+}
 
 struct bench_results {
 	int dummy;
@@ -81,6 +113,10 @@ struct test_suite {
 	/* Check for inconsistencies between vDSO and syscall
 	 * implemenations, usually by rapidly switching between the
 	 * two modes and comparing results obtained.
+	 *
+	 * FIXME: distinguish between self-consistency (vDSO-only) and
+	 * vDSO vs kernel consistency.  Or assume that doing vDSO vs
+	 * kernel will catch everything.
 	 */
 	int (*verify)(struct ctx *ctx);
 
@@ -90,19 +126,63 @@ struct test_suite {
 	int (*abi)(struct ctx *ctx);
 };
 
+
+static void getcpu_syscall_nofail(unsigned *cpu, unsigned *node)
+{
+	int err;
+
+	err = syscall(SYS_getcpu, cpu, node);
+	if (err)
+		error(EXIT_FAILURE, errno, "SYS_getcpu");
+}
+
+
+/* Set affinity to the current CPU */
+static void getcpu_setup(struct ctx *ctx)
+{
+	unsigned int cpu;
+	cpu_set_t mask;
+
+	getcpu_syscall_nofail(&cpu, NULL);
+
+	printf("cpu = %d\n", cpu);
+
+	CPU_ZERO(&mask);
+	CPU_SET(cpu, &mask);
+
+	if (sched_setaffinity(getpid(), sizeof(mask), &mask))
+		error(EXIT_FAILURE, errno, "sched_setaffinity");
+}
+
 static int getcpu_bench(struct ctx *ctx, struct bench_results *res)
 {
+	uint64_t vdsocalls;
+	uint64_t syscalls;
+
+	getcpu_setup(ctx);
+
 	ctx_start_timer(ctx);
 
-	while (!ctx_timer_expired(ctx)) {
-
+	for (vdsocalls = 0; !ctx_timer_expired(ctx); vdsocalls++) {
+		sched_getcpu();
 	}
+
+	ctx_start_timer(ctx);
+
+	for (syscalls = 0; !ctx_timer_expired(ctx); syscalls++) {
+		syscall(SYS_getcpu, NULL, NULL);
+	}
+
+	printf("%s: syscalls = %llu, vdso calls = %llu\n", __func__,
+	       (unsigned long long)syscalls, (unsigned long long)vdsocalls);
 
 	return 0;
 }
 
 static int getcpu_verify(struct ctx *ctx)
 {
+	getcpu_setup(ctx);
+
 	ctx_start_timer(ctx);
 
 	while (!ctx_timer_expired(ctx)) {
