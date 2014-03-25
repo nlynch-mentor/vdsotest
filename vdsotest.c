@@ -1,4 +1,5 @@
 #define _GNU_SOURCE
+#include <assert.h>
 #include <errno.h>
 #include <error.h>
 #include <sched.h>
@@ -50,6 +51,7 @@ struct bench_results {
 struct ctx {
 	volatile sig_atomic_t expired;
 	struct itimerspec duration;
+	cpu_set_t cpus_allowed;
 };
 
 static void ctx_init_defaults(struct ctx *ctx)
@@ -62,6 +64,13 @@ static void ctx_init_defaults(struct ctx *ctx)
 			},
 		},
 	};
+
+	if (sched_getaffinity(getpid(), sizeof(ctx->cpus_allowed),
+			      &ctx->cpus_allowed)) {
+		error(EXIT_FAILURE, errno, "sched_getaffinity");
+	}
+
+	assert(CPU_COUNT(&ctx->cpus_allowed) > 0);
 }
 
 static void expiration_handler(int sig, siginfo_t *si, void *uc)
@@ -138,14 +147,12 @@ static void getcpu_syscall_nofail(unsigned *cpu, unsigned *node)
 
 
 /* Set affinity to the current CPU */
-static void getcpu_setup(struct ctx *ctx)
+static void getcpu_setup(const struct ctx *ctx)
 {
 	unsigned int cpu;
 	cpu_set_t mask;
 
 	getcpu_syscall_nofail(&cpu, NULL);
-
-	printf("cpu = %d\n", cpu);
 
 	CPU_ZERO(&mask);
 	CPU_SET(cpu, &mask);
@@ -154,13 +161,28 @@ static void getcpu_setup(struct ctx *ctx)
 		error(EXIT_FAILURE, errno, "sched_setaffinity");
 }
 
-static unsigned int migrate_to_random_cpu(struct ctx *ctx)
+static void migrate(const struct ctx *ctx, cpu_set_t *cpus_allowed)
 {
 	unsigned int cpu;
+	cpu_set_t mask;
+
+	if (sched_getaffinity(getpid(), sizeof(mask), &mask))
+		error(EXIT_FAILURE, errno, "sched_getaffinity");
 
 	getcpu_syscall_nofail(&cpu, NULL);
 
-	return cpu;
+	assert(CPU_ISSET(cpu, &mask));
+
+	CPU_CLR(cpu, &mask);
+
+	if (CPU_COUNT(&mask) == 0) {
+		mask = ctx->cpus_allowed;
+	}
+
+	if (sched_setaffinity(getpid(), sizeof(mask), &mask))
+		error(EXIT_FAILURE, errno, "sched_setaffinity");
+
+	*cpus_allowed = mask;
 }
 
 static int getcpu_bench(struct ctx *ctx, struct bench_results *res)
@@ -195,28 +217,30 @@ static int getcpu_verify(struct ctx *ctx)
 	ctx_start_timer(ctx);
 
 	while (!ctx_timer_expired(ctx)) {
-		unsigned int target_cpu;
+		cpu_set_t cpus_allowed;
 		unsigned long loops;
 		unsigned long i;
 
-		target_cpu = migrate_to_random_cpu(ctx);
-		loops = random();
+		migrate(ctx, &cpus_allowed);
+		loops = random() % 1000000;
+
+		printf("loops = %ld\n", loops);
 
 		for (i = 0; i < loops && !ctx_timer_expired(ctx); i++) {
 			unsigned int cpu;
 
 			cpu = sched_getcpu();
 
-			if (cpu != target_cpu) {
+			if (!CPU_ISSET(cpu, &cpus_allowed)) {
 				error(EXIT_FAILURE, 0, "sched_getcpu returned "
-				      "%d, expecting %d\n", cpu, target_cpu);
+				      "unallowed cpu %d\n", cpu);
 			}
 
 			getcpu_syscall_nofail(&cpu, NULL);
 
-			if (cpu != target_cpu) {
+			if (!CPU_ISSET(cpu, &cpus_allowed)) {
 				error(EXIT_FAILURE, 0, "SYS_getcpu returned "
-				      "%d, expecting %d\n", cpu, target_cpu);
+				      "unallowed cpu %d\n", cpu);
 			}
 		}
 	}
