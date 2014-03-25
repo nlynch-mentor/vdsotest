@@ -3,7 +3,7 @@ AC_INIT([vdsotest],
         [0],
         [ntl@pobox.com],
         [vdsotest])
-AC_CONFIG_SRCDIR([src/util.c])
+AC_CONFIG_SRCDIR([src/util.h])
 AC_CONFIG_AUX_DIR([build-aux])
 AM_INIT_AUTOMAKE([check-news foreign 1.11 -Wall -Wno-portability silent-rules tar-pax no-dist-gzip dist-xz subdir-objects])
 AC_PROG_CC_STDC
