@@ -7,6 +7,10 @@ struct ctx {
 	cpu_set_t cpus_allowed;
 };
 
+struct bench_results {
+	int dummy;
+};
+
 struct test_suite {
 	const char *name; /* name of the API under test */
 
