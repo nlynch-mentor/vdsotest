@@ -37,6 +37,7 @@ static void getcpu_setup(const struct ctx *ctx)
 		error(EXIT_FAILURE, errno, "sched_setaffinity");
 }
 
+/* Force the scheduler to migrate us off the current cpu */
 static void migrate(const struct ctx *ctx, cpu_set_t *cpus_allowed)
 {
 	unsigned int cpu;
