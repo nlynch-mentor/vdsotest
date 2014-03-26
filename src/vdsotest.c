@@ -137,7 +137,7 @@ int main(int argc, char **argv)
 	ts = lookup_ts(testname);
 	if (!ts) {
 		error(EXIT_FAILURE, 0, "Unknown test suite '%s' specified",
-		      ts->name);
+		      testname);
 	}
 
 	funcname = argv[2];
