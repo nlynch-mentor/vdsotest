@@ -1,6 +1,11 @@
 #ifndef VDSOTEST_H
 #define VDSOTEST_H
 
+#include <sched.h>
+#include <signal.h>
+#include <stdbool.h>
+#include <time.h>
+
 struct ctx {
 	volatile sig_atomic_t expired;
 	struct itimerspec duration;
@@ -34,5 +39,12 @@ struct test_suite {
 };
 
 void register_testsuite(const struct test_suite *ts);
+
+void ctx_start_timer(struct ctx *ctx);
+
+static inline bool ctx_timer_expired(const struct ctx *ctx)
+{
+	return ctx->expired;
+}
 
 #endif

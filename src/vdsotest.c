@@ -26,7 +26,7 @@ void register_testsuite(const struct test_suite *ts)
 	ENTRY *res;
 
 	if (!initialized) {
-		if (hcreate_r(32, &test_suite_htab))
+		if (!hcreate_r(32, &test_suite_htab))
 			error(EXIT_FAILURE, errno, "hcreate_r");
 		initialized = true;
 	}
@@ -40,6 +40,20 @@ void register_testsuite(const struct test_suite *ts)
 	assert(res == NULL);
 	if (!hsearch_r(entry, ENTER, &res, &test_suite_htab))
 		error(EXIT_FAILURE, errno, "hsearch_r");
+}
+
+static const struct test_suite *lookup_ts(const char *name)
+{
+	ENTRY entry;
+	ENTRY *res;
+
+	entry = (ENTRY) {
+		.key = (void *)name,
+	};
+
+	hsearch_r(entry, FIND, &res, &test_suite_htab);
+
+	return res ? res->data : NULL;
 }
 
 static void ctx_init_defaults(struct ctx *ctx)
@@ -67,7 +81,7 @@ static void expiration_handler(int sig, siginfo_t *si, void *uc)
 	ctx->expired = 1;
 }
 
-static void ctx_start_timer(struct ctx *ctx)
+void ctx_start_timer(struct ctx *ctx)
 {
 	struct sigaction sa;
 	struct sigevent sev;
@@ -94,143 +108,6 @@ static void ctx_start_timer(struct ctx *ctx)
 
 	if (timer_settime(timer, 0, &ctx->duration, NULL))
 		error(EXIT_FAILURE, errno, "timer_settime");
-}
-
-static bool ctx_timer_expired(const struct ctx *ctx)
-{
-	return ctx->expired;
-}
-
-static void getcpu_syscall_nofail(unsigned *cpu, unsigned *node)
-{
-	int err;
-
-	err = syscall(SYS_getcpu, cpu, node);
-	if (err)
-		error(EXIT_FAILURE, errno, "SYS_getcpu");
-}
-
-
-/* Set affinity to the current CPU */
-static void getcpu_setup(const struct ctx *ctx)
-{
-	unsigned int cpu;
-	cpu_set_t mask;
-
-	getcpu_syscall_nofail(&cpu, NULL);
-
-	CPU_ZERO(&mask);
-	CPU_SET(cpu, &mask);
-
-	if (sched_setaffinity(getpid(), sizeof(mask), &mask))
-		error(EXIT_FAILURE, errno, "sched_setaffinity");
-}
-
-static void migrate(const struct ctx *ctx, cpu_set_t *cpus_allowed)
-{
-	unsigned int cpu;
-
-	if (sched_getaffinity(getpid(), sizeof(cpu_set_t), cpus_allowed))
-		error(EXIT_FAILURE, errno, "sched_getaffinity");
-
-	getcpu_syscall_nofail(&cpu, NULL);
-
-	assert(CPU_ISSET(cpu, cpus_allowed));
-
-	CPU_CLR(cpu, cpus_allowed);
-
-	if (CPU_COUNT(cpus_allowed) == 0) {
-		*cpus_allowed = ctx->cpus_allowed;
-	}
-
-	if (sched_setaffinity(getpid(), sizeof(cpu_set_t), cpus_allowed))
-		error(EXIT_FAILURE, errno, "sched_setaffinity");
-}
-
-static int getcpu_bench(struct ctx *ctx, struct bench_results *res)
-{
-	uint64_t vdsocalls;
-	uint64_t syscalls;
-
-	getcpu_setup(ctx);
-
-	ctx_start_timer(ctx);
-
-	for (vdsocalls = 0; !ctx_timer_expired(ctx); vdsocalls++) {
-		sched_getcpu();
-	}
-
-	ctx_start_timer(ctx);
-
-	for (syscalls = 0; !ctx_timer_expired(ctx); syscalls++) {
-		syscall(SYS_getcpu, NULL, NULL);
-	}
-
-	printf("%s: syscalls = %llu, vdso calls = %llu\n", __func__,
-	       (unsigned long long)syscalls, (unsigned long long)vdsocalls);
-
-	return 0;
-}
-
-static int getcpu_verify(struct ctx *ctx)
-{
-	getcpu_setup(ctx);
-
-	ctx_start_timer(ctx);
-
-	while (!ctx_timer_expired(ctx)) {
-		cpu_set_t cpus_allowed;
-		unsigned long loops;
-		unsigned long i;
-
-		migrate(ctx, &cpus_allowed);
-		loops = random() % 1000000;
-
-		printf("loops = %ld\n", loops);
-
-		for (i = 0; i < loops && !ctx_timer_expired(ctx); i++) {
-			unsigned int cpu;
-
-			cpu = sched_getcpu();
-
-			if (!CPU_ISSET(cpu, &cpus_allowed)) {
-				error(EXIT_FAILURE, 0, "sched_getcpu returned "
-				      "unallowed cpu %d\n", cpu);
-			}
-
-			getcpu_syscall_nofail(&cpu, NULL);
-
-			if (!CPU_ISSET(cpu, &cpus_allowed)) {
-				error(EXIT_FAILURE, 0, "SYS_getcpu returned "
-				      "unallowed cpu %d\n", cpu);
-			}
-		}
-	}
-
-	return 0;
-}
-
-static const struct test_suite getcpu_ts = {
-	.name = "getcpu",
-	.bench = getcpu_bench,
-	.verify = getcpu_verify,
-};
-
-static const struct test_suite *test_suites[] = {
-	&getcpu_ts,
-};
-
-static const struct test_suite *lookup_ts(const char *name)
-{
-	unsigned int i;
-
-	for (i = 0; i < ARRAY_SIZE(test_suites); i++) {
-		if (strcmp(name, test_suites[i]->name))
-			continue;
-		return test_suites[i];
-	}
-
-	return NULL;
 }
 
 static void usage(int ret)

@@ -18,5 +18,5 @@ AM_LDFLAGS = \
 	-Wl,--as-needed
 
 bin_PROGRAMS = vdsotest
-vdsotest_SOURCES = src/vdsotest.c src/util.c
+vdsotest_SOURCES = src/vdsotest.c src/util.c src/getcpu.c
 vdsotest_LDADD = -lrt
