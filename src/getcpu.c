@@ -67,13 +67,13 @@ static int getcpu_bench(struct ctx *ctx, struct bench_results *res)
 
 	ctx_start_timer(ctx);
 
-	for (vdsocalls = 0; !ctx_timer_expired(ctx); vdsocalls++) {
+	for (vdsocalls = 0; !test_should_stop(ctx); vdsocalls++) {
 		sched_getcpu();
 	}
 
 	ctx_start_timer(ctx);
 
-	for (syscalls = 0; !ctx_timer_expired(ctx); syscalls++) {
+	for (syscalls = 0; !test_should_stop(ctx); syscalls++) {
 		syscall(SYS_getcpu, NULL, NULL);
 	}
 
@@ -89,7 +89,7 @@ static int getcpu_verify(struct ctx *ctx)
 
 	ctx_start_timer(ctx);
 
-	while (!ctx_timer_expired(ctx)) {
+	while (!test_should_stop(ctx)) {
 		cpu_set_t cpus_allowed;
 		unsigned long loops;
 		unsigned long i;
@@ -99,21 +99,21 @@ static int getcpu_verify(struct ctx *ctx)
 
 		printf("loops = %ld\n", loops);
 
-		for (i = 0; i < loops && !ctx_timer_expired(ctx); i++) {
+		for (i = 0; i < loops && !test_should_stop(ctx); i++) {
 			unsigned int cpu;
 
 			cpu = sched_getcpu();
 
 			if (!CPU_ISSET(cpu, &cpus_allowed)) {
-				error(EXIT_FAILURE, 0, "sched_getcpu returned "
-				      "unallowed cpu %d\n", cpu);
+				log_failure(ctx, "sched_getcpu returned "
+					    "unallowed cpu %d\n", cpu);
 			}
 
 			getcpu_syscall_nofail(&cpu, NULL);
 
 			if (!CPU_ISSET(cpu, &cpus_allowed)) {
-				error(EXIT_FAILURE, 0, "SYS_getcpu returned "
-				      "unallowed cpu %d\n", cpu);
+				log_failure(ctx, "SYS_getcpu returned "
+					    "unallowed cpu %d\n", cpu);
 			}
 		}
 	}

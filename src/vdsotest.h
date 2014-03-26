@@ -6,10 +6,14 @@
 #include <stdbool.h>
 #include <time.h>
 
+#include "compiler.h"
+
 struct ctx {
-	volatile sig_atomic_t expired;
+	volatile sig_atomic_t should_stop;
 	struct itimerspec duration;
 	cpu_set_t cpus_allowed;
+	unsigned long long max_fails;
+	unsigned long long fails;
 };
 
 struct bench_results {
@@ -42,9 +46,11 @@ void register_testsuite(const struct test_suite *ts);
 
 void ctx_start_timer(struct ctx *ctx);
 
-static inline bool ctx_timer_expired(const struct ctx *ctx)
+static inline bool test_should_stop(const struct ctx *ctx)
 {
-	return ctx->expired;
+	return ctx->should_stop;
 }
+
+void log_failure(struct ctx *ctx, const char *fmt, ...) __printf(2, 3);
 
 #endif

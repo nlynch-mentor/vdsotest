@@ -4,6 +4,7 @@
 #include <sched.h>
 #include <search.h>
 #include <signal.h>
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -17,6 +18,27 @@
 #include "compiler.h"
 #include "util.h"
 #include "vdsotest.h"
+
+static void inc_fail_count(struct ctx *ctx)
+{
+	ctx->fails++;
+	if (ctx->fails >= ctx->max_fails) {
+		ctx->should_stop = 1;
+		fprintf(stderr, "Failure threshold (%llu) reached; "
+			"stopping test.\n", ctx->max_fails);
+	}
+}
+
+void log_failure(struct ctx *ctx, const char *fmt, ...)
+{
+	va_list args;
+
+	va_start(args, fmt);
+	vfprintf(stderr, fmt, args);
+	va_end(args);
+
+	inc_fail_count(ctx);
+}
 
 static struct hashtable test_suite_htab;
 
@@ -33,12 +55,12 @@ static const struct test_suite *lookup_ts(const char *name)
 static void ctx_init_defaults(struct ctx *ctx)
 {
 	*ctx = (struct ctx) {
-		.expired = 0,
 		.duration = (struct itimerspec) {
 			.it_value = (struct timespec) {
 				.tv_sec = 1,
 			},
 		},
+		.max_fails = 10,
 	};
 
 	if (sched_getaffinity(getpid(), sizeof(ctx->cpus_allowed),
@@ -52,7 +74,7 @@ static void ctx_init_defaults(struct ctx *ctx)
 static void expiration_handler(int sig, siginfo_t *si, void *uc)
 {
 	struct ctx *ctx = si->si_value.sival_ptr;
-	ctx->expired = 1;
+	ctx->should_stop = 1;
 }
 
 void ctx_start_timer(struct ctx *ctx)
@@ -61,7 +83,7 @@ void ctx_start_timer(struct ctx *ctx)
 	struct sigevent sev;
 	timer_t timer;
 
-	ctx->expired = 0;
+	ctx->should_stop = 0;
 
 	sa = (struct sigaction) {
 		.sa_flags = SA_SIGINFO,
@@ -99,49 +121,34 @@ enum testfunc_result {
 static enum testfunc_result
 testsuite_run_bench(struct ctx *ctx, const struct test_suite *ts)
 {
-	int fails;
-
 	if (!ts->bench)
 		return TF_NOIMPL;
 
-	fails = ts->bench(ctx, NULL);
-	if (fails) {
-		/* TODO: record number of failures somehow */
-	}
+	ts->bench(ctx, NULL);
 
-	return fails ? TF_FAIL : TF_OK;
+	return ctx->fails ? TF_FAIL : TF_OK;
 }
 
 static enum testfunc_result
 testsuite_run_verify(struct ctx *ctx, const struct test_suite *ts)
 {
-	int fails;
-
 	if (!ts->verify)
 		return TF_NOIMPL;
 
-	fails = ts->verify(ctx);
-	if (fails) {
-		/* TODO: record number of failures somehow */
-	}
+	ts->verify(ctx);
 
-	return fails ? TF_FAIL : TF_OK;
+	return ctx->fails ? TF_FAIL : TF_OK;
 }
 
 static enum testfunc_result
 testsuite_run_abi(struct ctx *ctx, const struct test_suite *ts)
 {
-	int fails;
-
 	if (!ts->abi)
 		return TF_NOIMPL;
 
-	fails = ts->abi(ctx);
-	if (fails) {
-		/* TODO: record number of failures somehow */
-	}
+	ts->abi(ctx);
 
-	return fails ? TF_FAIL : TF_OK;
+	return ctx->fails ? TF_FAIL : TF_OK;
 }
 
 typedef enum testfunc_result (*testfunc_t)(struct ctx *, const struct test_suite *);
@@ -173,6 +180,9 @@ int main(int argc, char **argv)
 	const char *funcname;
 	struct ctx ctx;
 	testfunc_t tf;
+	int ret;
+
+	ret = EXIT_SUCCESS;
 
 	srandom(getpid());
 
@@ -199,5 +209,13 @@ int main(int argc, char **argv)
 
 	tf_ret = tf(&ctx, ts);
 
-	return tf_ret == TF_OK ? EXIT_SUCCESS : EXIT_FAILURE;
+	if (tf_ret == TF_NOIMPL) {
+		printf("%s/%s: unimplemented\n", testname, funcname);
+	} else if (ctx.fails > 0) {
+		printf("%s/%s: %llu failures/inconsistencies encountered\n",
+		       testname, funcname, ctx.fails);
+		ret = EXIT_FAILURE;
+	}
+
+	return ret;
 }
