@@ -33,7 +33,7 @@ struct bench_results {
 	struct bench_interval sys_interval;
 };
 
-static inline void bench_interval_begin(struct bench_interval *ival)
+static inline void __bench_interval_begin(struct bench_interval *ival)
 {
 	int err;
 
@@ -42,21 +42,22 @@ static inline void bench_interval_begin(struct bench_interval *ival)
 		error(EXIT_FAILURE, errno, "clock_gettime");
 }
 
-static inline void bench_interval_end(struct bench_interval *ival)
+#define bench_interval_begin(ival, calls)	\
+	do {					\
+		calls = 0;			\
+		__bench_interval_begin(ival);	\
+	} while (0)
+
+static inline void bench_interval_end(struct bench_interval *ival, uint64_t calls)
 {
 	int err;
 
 	err = clock_gettime(CLOCK_MONOTONIC, &ival->end);
 	if (err)
 		error(EXIT_FAILURE, errno, "clock_gettime");
-
+	ival->calls = calls;
 	ival->duration_nsec = timespec_delta_nsec(&ival->begin, &ival->end);
 	ival->calls_per_sec = (ival->calls * NSEC_PER_SEC) / ival->duration_nsec;
-}
-
-static inline void bench_interval_inc(struct bench_interval *ival)
-{
-	ival->calls++;
 }
 
 struct test_suite {

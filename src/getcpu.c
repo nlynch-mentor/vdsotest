@@ -61,31 +61,32 @@ static void migrate(const struct ctx *ctx, cpu_set_t *cpus_allowed)
 
 static void getcpu_bench(struct ctx *ctx, struct bench_results *res)
 {
+	uint64_t calls;
 	int cpu;
 
 	getcpu_setup(ctx);
 
 	ctx_start_timer(ctx);
 
-	bench_interval_begin(&res->vdso_interval);
+	bench_interval_begin(&res->vdso_interval, calls);
 
 	while (!test_should_stop(ctx)) {
 		cpu = sched_getcpu();
-		bench_interval_inc(&res->vdso_interval);
+		calls++;
 	}
 
-	bench_interval_end(&res->vdso_interval);
+	bench_interval_end(&res->vdso_interval, calls);
 
 	ctx_start_timer(ctx);
 
-	bench_interval_begin(&res->sys_interval);
+	bench_interval_begin(&res->sys_interval, calls);
 
 	while (!test_should_stop(ctx)) {
 		syscall(SYS_getcpu, &cpu, NULL);
-		bench_interval_inc(&res->sys_interval);
+		calls++;
 	}
 
-	bench_interval_end(&res->sys_interval);
+	bench_interval_end(&res->sys_interval, calls);
 }
 
 static void getcpu_verify(struct ctx *ctx)

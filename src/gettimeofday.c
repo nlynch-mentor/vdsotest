@@ -113,28 +113,29 @@ static void gettimeofday_verify(struct ctx *ctx)
 static void gettimeofday_bench(struct ctx *ctx, struct bench_results *res)
 {
 	struct timeval tv;
+	uint64_t calls;
 
 	ctx_start_timer(ctx);
 
-	bench_interval_begin(&res->vdso_interval);
+	bench_interval_begin(&res->vdso_interval, calls);
 
 	while (!test_should_stop(ctx)) {
 		gettimeofday(&tv, NULL);
-		bench_interval_inc(&res->vdso_interval);
+		calls++;
 	}
 
-	bench_interval_end(&res->vdso_interval);
+	bench_interval_end(&res->vdso_interval, calls);
 
 	ctx_start_timer(ctx);
 
-	bench_interval_begin(&res->sys_interval);
+	bench_interval_begin(&res->sys_interval, calls);
 
 	while (!test_should_stop(ctx)) {
 		syscall(SYS_gettimeofday, &tv, NULL);
-		bench_interval_inc(&res->sys_interval);
+		calls++;
 	}
 
-	bench_interval_end(&res->sys_interval);
+	bench_interval_end(&res->sys_interval, calls);
 }
 
 
