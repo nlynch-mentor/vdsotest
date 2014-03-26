@@ -2,6 +2,7 @@
 #include <errno.h>
 #include <error.h>
 #include <sched.h>
+#include <search.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -15,6 +16,31 @@
 
 #include "util.h"
 #include "vdsotest.h"
+
+static struct hsearch_data test_suite_htab;
+
+void register_testsuite(const struct test_suite *ts)
+{
+	static bool initialized;
+	ENTRY entry;
+	ENTRY *res;
+
+	if (!initialized) {
+		if (hcreate_r(32, &test_suite_htab))
+			error(EXIT_FAILURE, errno, "hcreate_r");
+		initialized = true;
+	}
+
+	entry = (ENTRY) {
+		.key = (void *)ts->name,
+		.data = (void *)ts,
+	};
+
+	hsearch_r(entry, FIND, &res, &test_suite_htab);
+	assert(res == NULL);
+	if (!hsearch_r(entry, ENTER, &res, &test_suite_htab))
+		error(EXIT_FAILURE, errno, "hsearch_r");
+}
 
 static void ctx_init_defaults(struct ctx *ctx)
 {
