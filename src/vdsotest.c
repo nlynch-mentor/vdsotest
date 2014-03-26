@@ -18,43 +18,16 @@
 #include "util.h"
 #include "vdsotest.h"
 
-static struct hsearch_data test_suite_htab;
+static struct hashtable test_suite_htab;
 
 void register_testsuite(const struct test_suite *ts)
 {
-	static bool initialized;
-	ENTRY entry;
-	ENTRY *res;
-
-	if (!initialized) {
-		if (!hcreate_r(32, &test_suite_htab))
-			error(EXIT_FAILURE, errno, "hcreate_r");
-		initialized = true;
-	}
-
-	entry = (ENTRY) {
-		.key = (void *)ts->name,
-		.data = (void *)ts,
-	};
-
-	hsearch_r(entry, FIND, &res, &test_suite_htab);
-	assert(res == NULL);
-	if (!hsearch_r(entry, ENTER, &res, &test_suite_htab))
-		error(EXIT_FAILURE, errno, "hsearch_r");
+	hashtable_add(&test_suite_htab, ts->name, ts);
 }
 
 static const struct test_suite *lookup_ts(const char *name)
 {
-	ENTRY entry;
-	ENTRY *res;
-
-	entry = (ENTRY) {
-		.key = (void *)name,
-	};
-
-	hsearch_r(entry, FIND, &res, &test_suite_htab);
-
-	return res ? res->data : NULL;
+	return hashtable_lookup(&test_suite_htab, name);
 }
 
 static void ctx_init_defaults(struct ctx *ctx)
@@ -173,43 +146,16 @@ testsuite_run_abi(struct ctx *ctx, const struct test_suite *ts)
 
 typedef enum testfunc_result (*testfunc_t)(struct ctx *, const struct test_suite *);
 
-static struct hsearch_data test_func_htab;
+static struct hashtable test_func_htab;
 
 static void register_testfunc(const char *name, testfunc_t func)
 {
-	static bool initialized;
-	ENTRY entry;
-	ENTRY *res;
-
-	if (!initialized) {
-		if (!hcreate_r(32, &test_func_htab))
-			error(EXIT_FAILURE, errno, "hcreate_r");
-		initialized = true;
-	}
-
-	entry = (ENTRY) {
-		.key = (void *)name,
-		.data = func,
-	};
-
-	hsearch_r(entry, FIND, &res, &test_func_htab);
-	assert(res == NULL);
-	if (!hsearch_r(entry, ENTER, &res, &test_func_htab))
-		error(EXIT_FAILURE, errno, "hsearch_r");
+	hashtable_add(&test_func_htab, name, func);
 }
 
 static testfunc_t lookup_tf(const char *name)
 {
-	ENTRY entry;
-	ENTRY *res;
-
-	entry = (ENTRY) {
-		.key = (void *)name,
-	};
-
-	hsearch_r(entry, FIND, &res, &test_func_htab);
-
-	return res ? res->data : NULL;
+	return hashtable_lookup(&test_func_htab, name);
 }
 
 static void __constructor register_testfuncs(void)
