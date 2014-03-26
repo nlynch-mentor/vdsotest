@@ -58,7 +58,7 @@ static void migrate(const struct ctx *ctx, cpu_set_t *cpus_allowed)
 		error(EXIT_FAILURE, errno, "sched_setaffinity");
 }
 
-static int getcpu_bench(struct ctx *ctx, struct bench_results *res)
+static void getcpu_bench(struct ctx *ctx, struct bench_results *res)
 {
 	uint64_t vdsocalls;
 	uint64_t syscalls;
@@ -79,11 +79,9 @@ static int getcpu_bench(struct ctx *ctx, struct bench_results *res)
 
 	printf("%s: syscalls = %llu, vdso calls = %llu\n", __func__,
 	       (unsigned long long)syscalls, (unsigned long long)vdsocalls);
-
-	return 0;
 }
 
-static int getcpu_verify(struct ctx *ctx)
+static void getcpu_verify(struct ctx *ctx)
 {
 	getcpu_setup(ctx);
 
@@ -117,8 +115,6 @@ static int getcpu_verify(struct ctx *ctx)
 			}
 		}
 	}
-
-	return 0;
 }
 
 static const struct test_suite getcpu_ts = {

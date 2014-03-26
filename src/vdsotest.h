@@ -24,7 +24,7 @@ struct test_suite {
 	const char *name; /* name of the API under test */
 
 	/* Estimate speedup obtained by using vDSO implementation vs syscall */
-	int (*bench)(struct ctx *ctx, struct bench_results *res);
+	void (*bench)(struct ctx *ctx, struct bench_results *res);
 
 	/* Check for inconsistencies between vDSO and syscall
 	 * implemenations, usually by rapidly switching between the
@@ -34,12 +34,12 @@ struct test_suite {
 	 * vDSO vs kernel consistency.  Or assume that doing vDSO vs
 	 * kernel will catch everything.
 	 */
-	int (*verify)(struct ctx *ctx);
+	void (*verify)(struct ctx *ctx);
 
 	/* Check for ABI inconsistencies, within reason - e.g. vDSO
 	 * may get SIGSEGV where syscall may return EFAULT.
 	 */
-	int (*abi)(struct ctx *ctx);
+	void (*abi)(struct ctx *ctx);
 };
 
 void register_testsuite(const struct test_suite *ts);
