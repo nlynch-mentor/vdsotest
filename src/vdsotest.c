@@ -121,35 +121,28 @@ enum testfunc_result {
 static enum testfunc_result
 testsuite_run_bench(struct ctx *ctx, const struct test_suite *ts)
 {
-	struct bench_results *bres;
+	struct bench_results bres;
 	if (!ts->bench)
 		return TF_NOIMPL;
 
-	/* Allocating from heap seems to yield more consistent
-	 * results, perhaps alignment-related.
-	 */
-	bres = xzmalloc(sizeof(*bres));
+	bres = (struct bench_results) { };
 
-	ts->bench(ctx, bres);
+	ts->bench(ctx, &bres);
 
-	if (ctx->fails) {
-		xfree(bres);
+	if (ctx->fails)
 		return TF_FAIL;
-	}
 
 	printf("%s: syscalls = %llu, vdso calls = %llu\n", ts->name,
-	       (unsigned long long)bres->sys_interval.calls,
-	       (unsigned long long)bres->vdso_interval.calls);
+	       (unsigned long long)bres.sys_interval.calls,
+	       (unsigned long long)bres.vdso_interval.calls);
 
 	printf("%s system calls per second: %llu\n", ts->name,
-	       (unsigned long long)bres->sys_interval.calls_per_sec);
+	       (unsigned long long)bres.sys_interval.calls_per_sec);
 
 	printf("%s vdso calls per second:   %llu (%LFx speedup)\n", ts->name,
-	       (unsigned long long)bres->vdso_interval.calls_per_sec,
-	       (long double)bres->vdso_interval.calls_per_sec /
-	       (long double)bres->sys_interval.calls_per_sec);
-
-	xfree(bres);
+	       (unsigned long long)bres.vdso_interval.calls_per_sec,
+	       (long double)bres.vdso_interval.calls_per_sec /
+	       (long double)bres.sys_interval.calls_per_sec);
 
 	return TF_OK;
 }
