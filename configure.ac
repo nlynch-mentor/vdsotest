@@ -1,6 +1,6 @@
 AC_PREREQ(2.60)
 AC_INIT([vdsotest],
-        [0],
+        [0.1],
         [ntl@pobox.com],
         [vdsotest])
 AC_CONFIG_SRCDIR([src/util.h])
