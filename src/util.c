@@ -13,6 +13,11 @@ void *xmalloc(size_t sz)
 	return ret;
 }
 
+void *xzmalloc(size_t sz)
+{
+	return memset(xmalloc(sz), 0, sz);
+}
+
 void *xrealloc(void *ptr, size_t sz)
 {
 	void *ret;
