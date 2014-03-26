@@ -75,6 +75,9 @@ void hashtable_add(struct hashtable *ht, const char *key, const void *data)
 	ENTRY search;
 	ENTRY *res;
 
+	if (!ht->htab)
+		hashtable_init(ht);
+
 	assert(!hashtable_lookup(ht, key));
 
 	search = (ENTRY) {
