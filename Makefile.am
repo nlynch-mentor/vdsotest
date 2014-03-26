@@ -18,5 +18,13 @@ AM_LDFLAGS = \
 	-Wl,--as-needed
 
 bin_PROGRAMS = vdsotest
-vdsotest_SOURCES = src/vdsotest.c src/util.c src/getcpu.c src/gettimeofday.c
+vdsotest_SOURCES = \
+	src/clock-monotonic-coarse.c \
+	src/clock-monotonic.c \
+	src/clock-realtime-coarse.c \
+	src/clock-realtime.c \
+	src/getcpu.c \
+	src/gettimeofday.c \
+	src/util.c \
+	src/vdsotest.c
 vdsotest_LDADD = -lrt
