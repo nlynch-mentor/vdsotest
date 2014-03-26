@@ -112,24 +112,29 @@ static void gettimeofday_verify(struct ctx *ctx)
 
 static void gettimeofday_bench(struct ctx *ctx, struct bench_results *res)
 {
-	uint64_t vdsocalls;
-	uint64_t syscalls;
 	struct timeval tv;
 
 	ctx_start_timer(ctx);
 
-	for (vdsocalls = 0; !test_should_stop(ctx); vdsocalls++) {
+	bench_interval_begin(&res->vdso_interval);
+
+	while (!test_should_stop(ctx)) {
 		gettimeofday(&tv, NULL);
+		bench_interval_inc(&res->vdso_interval);
 	}
+
+	bench_interval_end(&res->vdso_interval);
 
 	ctx_start_timer(ctx);
 
-	for (syscalls = 0; !test_should_stop(ctx); syscalls++) {
+	bench_interval_begin(&res->sys_interval);
+
+	while (!test_should_stop(ctx)) {
 		syscall(SYS_gettimeofday, &tv, NULL);
+		bench_interval_inc(&res->sys_interval);
 	}
 
-	printf("%s: syscalls = %llu, vdso calls = %llu\n", __func__,
-	       (unsigned long long)syscalls, (unsigned long long)vdsocalls);
+	bench_interval_end(&res->sys_interval);
 }
 
 

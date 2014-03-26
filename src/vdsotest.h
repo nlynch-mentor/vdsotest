@@ -1,12 +1,16 @@
 #ifndef VDSOTEST_H
 #define VDSOTEST_H
 
+#include <errno.h>
+#include <error.h>
 #include <sched.h>
 #include <signal.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <time.h>
 
 #include "compiler.h"
+#include "util.h"
 
 struct ctx {
 	volatile sig_atomic_t should_stop;
@@ -16,9 +20,44 @@ struct ctx {
 	unsigned long long fails;
 };
 
-struct bench_results {
-	int dummy;
+struct bench_interval {
+	uint64_t calls;
+	struct timespec begin;
+	struct timespec end;
+	uint64_t duration_nsec;
+	uint64_t calls_per_sec;
 };
+
+struct bench_results {
+	struct bench_interval vdso_interval;
+	struct bench_interval sys_interval;
+};
+
+static inline void bench_interval_begin(struct bench_interval *ival)
+{
+	int err;
+
+	err = clock_gettime(CLOCK_MONOTONIC, &ival->begin);
+	if (err)
+		error(EXIT_FAILURE, errno, "clock_gettime");
+}
+
+static inline void bench_interval_end(struct bench_interval *ival)
+{
+	int err;
+
+	err = clock_gettime(CLOCK_MONOTONIC, &ival->end);
+	if (err)
+		error(EXIT_FAILURE, errno, "clock_gettime");
+
+	ival->duration_nsec = timespec_delta_nsec(&ival->begin, &ival->end);
+	ival->calls_per_sec = (ival->calls * NSEC_PER_SEC) / ival->duration_nsec;
+}
+
+static inline void bench_interval_inc(struct bench_interval *ival)
+{
+	ival->calls++;
+}
 
 struct test_suite {
 	const char *name; /* name of the API under test */

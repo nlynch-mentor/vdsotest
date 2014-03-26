@@ -121,12 +121,37 @@ enum testfunc_result {
 static enum testfunc_result
 testsuite_run_bench(struct ctx *ctx, const struct test_suite *ts)
 {
+	struct bench_results *bres;
 	if (!ts->bench)
 		return TF_NOIMPL;
 
-	ts->bench(ctx, NULL);
+	/* Allocating from heap seems to yield more consistent
+	 * results, perhaps alignment-related.
+	 */
+	bres = xzmalloc(sizeof(*bres));
 
-	return ctx->fails ? TF_FAIL : TF_OK;
+	ts->bench(ctx, bres);
+
+	if (ctx->fails) {
+		xfree(bres);
+		return TF_FAIL;
+	}
+
+	printf("%s: syscalls = %llu, vdso calls = %llu\n", ts->name,
+	       (unsigned long long)bres->sys_interval.calls,
+	       (unsigned long long)bres->vdso_interval.calls);
+
+	printf("%s system calls per second: %llu\n", ts->name,
+	       (unsigned long long)bres->sys_interval.calls_per_sec);
+
+	printf("%s vdso calls per second:   %llu (%LFx speedup)\n", ts->name,
+	       (unsigned long long)bres->vdso_interval.calls_per_sec,
+	       (long double)bres->vdso_interval.calls_per_sec /
+	       (long double)bres->sys_interval.calls_per_sec);
+
+	xfree(bres);
+
+	return TF_OK;
 }
 
 static enum testfunc_result
