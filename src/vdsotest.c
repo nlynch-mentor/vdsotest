@@ -139,7 +139,7 @@ testsuite_run_bench(struct ctx *ctx, const struct test_suite *ts)
 	printf("%s system calls per second: %llu\n", ts->name,
 	       (unsigned long long)bres.sys_interval.calls_per_sec);
 
-	printf("%s vdso calls per second:   %llu (%LFx speedup)\n", ts->name,
+	printf("%s vdso calls per second:   %llu (%.2LFx speedup)\n", ts->name,
 	       (unsigned long long)bres.vdso_interval.calls_per_sec,
 	       (long double)bres.vdso_interval.calls_per_sec /
 	       (long double)bres.sys_interval.calls_per_sec);
