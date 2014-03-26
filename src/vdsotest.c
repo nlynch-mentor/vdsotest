@@ -14,6 +14,7 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "compiler.h"
 #include "util.h"
 #include "vdsotest.h"
 
@@ -116,14 +117,116 @@ static void usage(int ret)
 	exit(ret);
 }
 
+enum testfunc_result {
+	TF_OK,     /* Test completed without failure */
+	TF_FAIL,   /* One or more failures/inconsistencies encountered */
+	TF_NOIMPL, /* Function not implemented */
+};
+
+static enum testfunc_result
+testsuite_run_bench(struct ctx *ctx, const struct test_suite *ts)
+{
+	int fails;
+
+	if (!ts->bench)
+		return TF_NOIMPL;
+
+	fails = ts->bench(ctx, NULL);
+	if (fails) {
+		/* TODO: record number of failures somehow */
+	}
+
+	return fails ? TF_FAIL : TF_OK;
+}
+
+static enum testfunc_result
+testsuite_run_verify(struct ctx *ctx, const struct test_suite *ts)
+{
+	int fails;
+
+	if (!ts->verify)
+		return TF_NOIMPL;
+
+	fails = ts->verify(ctx);
+	if (fails) {
+		/* TODO: record number of failures somehow */
+	}
+
+	return fails ? TF_FAIL : TF_OK;
+}
+
+static enum testfunc_result
+testsuite_run_abi(struct ctx *ctx, const struct test_suite *ts)
+{
+	int fails;
+
+	if (!ts->abi)
+		return TF_NOIMPL;
+
+	fails = ts->abi(ctx);
+	if (fails) {
+		/* TODO: record number of failures somehow */
+	}
+
+	return fails ? TF_FAIL : TF_OK;
+}
+
+typedef enum testfunc_result (*testfunc_t)(struct ctx *, const struct test_suite *);
+
+static struct hsearch_data test_func_htab;
+
+static void register_testfunc(const char *name, testfunc_t func)
+{
+	static bool initialized;
+	ENTRY entry;
+	ENTRY *res;
+
+	if (!initialized) {
+		if (!hcreate_r(32, &test_func_htab))
+			error(EXIT_FAILURE, errno, "hcreate_r");
+		initialized = true;
+	}
+
+	entry = (ENTRY) {
+		.key = (void *)name,
+		.data = func,
+	};
+
+	hsearch_r(entry, FIND, &res, &test_func_htab);
+	assert(res == NULL);
+	if (!hsearch_r(entry, ENTER, &res, &test_func_htab))
+		error(EXIT_FAILURE, errno, "hsearch_r");
+}
+
+static testfunc_t lookup_tf(const char *name)
+{
+	ENTRY entry;
+	ENTRY *res;
+
+	entry = (ENTRY) {
+		.key = (void *)name,
+	};
+
+	hsearch_r(entry, FIND, &res, &test_func_htab);
+
+	return res ? res->data : NULL;
+}
+
+static void __constructor register_testfuncs(void)
+{
+	register_testfunc("verify", testsuite_run_verify);
+	register_testfunc("bench",  testsuite_run_bench);
+	register_testfunc("abi",    testsuite_run_abi);
+}
+
 int main(int argc, char **argv)
 {
-	struct bench_results bench_res;
 	const struct test_suite *ts;
+	enum testfunc_result tf_ret;
 	const char *testname;
 	const char *funcname;
 	struct ctx ctx;
-	int ret;
+	testfunc_t tf;
 
 	srandom(getpid());
 
@@ -142,12 +245,13 @@ int main(int argc, char **argv)
 
 	funcname = argv[2];
 
-	if (!strcmp(funcname, "bench"))
-		ret = ts->bench(&ctx, &bench_res);
-	else if (!strcmp(funcname, "verify"))
-		ret = ts->verify(&ctx);
-	else
-		usage(EXIT_FAILURE);
+	tf = lookup_tf(funcname);
+	if (!tf) {
+		error(EXIT_FAILURE, 0, "Unknown test function '%s' specified",
+		      funcname);
+	}
 
-	return ret ? EXIT_FAILURE : EXIT_SUCCESS;
+	tf_ret = tf(&ctx, ts);
+
+	return tf_ret == TF_OK ? EXIT_SUCCESS : EXIT_FAILURE;
 }
