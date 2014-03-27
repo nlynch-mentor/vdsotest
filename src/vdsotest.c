@@ -236,10 +236,18 @@ static error_t parse(int key, char *arg, struct argp_state *state)
 	return 0;
 }
 
-static const char vdsotest_doc[] = PACKAGE_NAME
-	" -- verify and benchmark vDSO APIs";
+static const char vdsotest_doc[] = "where API must be one of:\n"
+	"\tclock-monotonic-coarse\n"
+	"\tclock-monotonic\n"
+	"\tclock-realtime-coarse\n"
+	"\tclock-realtime\n"
+	"\tgetcpu\n"
+	"\tgettimeofday\n"
+	"and TEST-TYPE must be one of:\n"
+	"\tabi\n"
+	"\tbench\n"
+	"\tverify\n";
 
-/* fixme: list valid APIs and TEST-TYPEs */
 static const char vdsotest_args_doc[] = "API TEST-TYPE";
 
 static const struct argp argparser = {
