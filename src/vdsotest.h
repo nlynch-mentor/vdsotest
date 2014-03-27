@@ -18,6 +18,8 @@ struct ctx {
 	cpu_set_t cpus_allowed;
 	unsigned long long max_fails;
 	unsigned long long fails;
+	const char *api;
+	const char *test_type;
 };
 
 struct bench_interval {

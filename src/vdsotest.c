@@ -1,3 +1,4 @@
+#include <argp.h>
 #include <assert.h>
 #include <errno.h>
 #include <error.h>
@@ -18,6 +19,9 @@
 #include "compiler.h"
 #include "util.h"
 #include "vdsotest.h"
+
+const char *argp_program_version = PACKAGE_VERSION;
+const char *argp_program_bug_address = PACKAGE_BUGREPORT;
 
 static void inc_fail_count(struct ctx *ctx)
 {
@@ -106,12 +110,6 @@ void ctx_start_timer(struct ctx *ctx)
 		error(EXIT_FAILURE, errno, "timer_settime");
 }
 
-static void usage(int ret)
-{
-	printf("Usage:\n\tNot recommended.\n");
-	exit(ret);
-}
-
 enum testfunc_result {
 	TF_OK,     /* Test completed without failure */
 	TF_FAIL,   /* One or more failures/inconsistencies encountered */
@@ -190,12 +188,71 @@ static void __constructor register_testfuncs(void)
 	register_testfunc("abi",    testsuite_run_abi);
 }
 
+static const struct argp_option options[] = {
+	{
+		.name = "duration",
+		.key = 'd',
+		.doc = "Duration of test run in seconds",
+		.arg = "SEC",
+	},
+	{ 0 },
+};
+
+static error_t parse(int key, char *arg, struct argp_state *state)
+{
+	struct ctx *ctx;
+
+	ctx = state->input;
+
+	switch (key) {
+	case 'd':
+		ctx->duration.it_value.tv_sec = strtoul(arg, NULL, 0);
+		break;
+	case ARGP_KEY_ARG:
+		switch (state->arg_num) {
+		case 0:
+			ctx->api = arg;
+			break;
+		case 1:
+			ctx->test_type = arg;
+			break;
+		default:
+			/* Too many arguments */
+			argp_usage(state);
+			break;
+		}
+		break;
+	case ARGP_KEY_END:
+		if (state->arg_num < 2) {
+			/* Too few arguments */
+			argp_usage(state);
+		}
+		break;
+	default:
+		return ARGP_ERR_UNKNOWN;
+		break;
+	}
+
+	return 0;
+}
+
+static const char vdsotest_doc[] = PACKAGE_NAME
+	" -- verify and benchmark vDSO APIs";
+
+/* fixme: list valid APIs and TEST-TYPEs */
+static const char vdsotest_args_doc[] = "API TEST-TYPE";
+
+static const struct argp argparser = {
+	.options = options,
+	.parser = parse,
+	.args_doc = vdsotest_args_doc,
+	.doc = vdsotest_doc,
+};
+
 int main(int argc, char **argv)
 {
 	const struct test_suite *ts;
 	enum testfunc_result tf_ret;
-	const char *testname;
-	const char *funcname;
 	struct ctx ctx;
 	testfunc_t tf;
 	int ret;
@@ -206,32 +263,27 @@ int main(int argc, char **argv)
 
 	ctx_init_defaults(&ctx);
 
-	if (argc != 3)
-		usage(EXIT_FAILURE);
+	argp_parse(&argparser, argc, argv, 0, 0, &ctx);
 
-	testname = argv[1];
-
-	ts = lookup_ts(testname);
+	ts = lookup_ts(ctx.api);
 	if (!ts) {
 		error(EXIT_FAILURE, 0, "Unknown test suite '%s' specified",
-		      testname);
+		      ctx.api);
 	}
 
-	funcname = argv[2];
-
-	tf = lookup_tf(funcname);
+	tf = lookup_tf(ctx.test_type);
 	if (!tf) {
 		error(EXIT_FAILURE, 0, "Unknown test function '%s' specified",
-		      funcname);
+		      ctx.test_type);
 	}
 
 	tf_ret = tf(&ctx, ts);
 
 	if (tf_ret == TF_NOIMPL) {
-		printf("%s/%s: unimplemented\n", testname, funcname);
+		printf("%s/%s: unimplemented\n", ctx.api, ctx.test_type);
 	} else if (ctx.fails > 0) {
 		printf("%s/%s: %llu failures/inconsistencies encountered\n",
-		       testname, funcname, ctx.fails);
+		       ctx.api, ctx.test_type, ctx.fails);
 		ret = EXIT_FAILURE;
 	}
 
