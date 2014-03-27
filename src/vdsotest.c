@@ -198,7 +198,13 @@ static const struct argp_option options[] = {
 	{
 		.name = "debug",
 		.key = 'g',
-		.doc = "Enable debug output (may perturb bench results)",
+		.doc = "Enable debug output which may perturb bench results; "
+		       "implies --verbose",
+	},
+	{
+		.name = "verbose",
+		.key = 'v',
+		.doc = "Enable verbose output",
 	},
 	{ 0 },
 };
@@ -215,6 +221,9 @@ static error_t parse(int key, char *arg, struct argp_state *state)
 		break;
 	case 'g':
 		ctx->debug = true;
+		break;
+	case 'v':
+		ctx->verbose = true;
 		break;
 	case ARGP_KEY_ARG:
 		switch (state->arg_num) {

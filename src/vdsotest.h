@@ -21,6 +21,7 @@ struct ctx {
 	const char *api;
 	const char *test_type;
 	bool debug;
+	bool verbose;
 };
 
 struct bench_interval {
