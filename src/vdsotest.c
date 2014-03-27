@@ -195,6 +195,11 @@ static const struct argp_option options[] = {
 		.doc = "Duration of test run in seconds",
 		.arg = "SEC",
 	},
+	{
+		.name = "debug",
+		.key = 'g',
+		.doc = "Enable debug output (may perturb bench results)",
+	},
 	{ 0 },
 };
 
@@ -207,6 +212,9 @@ static error_t parse(int key, char *arg, struct argp_state *state)
 	switch (key) {
 	case 'd':
 		ctx->duration.it_value.tv_sec = strtoul(arg, NULL, 0);
+		break;
+	case 'g':
+		ctx->debug = true;
 		break;
 	case ARGP_KEY_ARG:
 		switch (state->arg_num) {

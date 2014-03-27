@@ -20,6 +20,7 @@ struct ctx {
 	unsigned long long fails;
 	const char *api;
 	const char *test_type;
+	bool debug;
 };
 
 struct bench_interval {
