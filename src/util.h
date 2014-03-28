@@ -66,4 +66,6 @@ timespec_delta(const struct timespec *before_ts,
 	return nsec_to_timespec(timespec_delta_nsec(before_ts, after_ts));
 }
 
+void *alloc_page(int prot);
+
 #endif

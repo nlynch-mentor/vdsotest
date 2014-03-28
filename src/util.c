@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
+#include <unistd.h>
 
 #include "util.h"
 
@@ -104,4 +106,18 @@ void hashtable_add(struct hashtable *ht, const char *key, const void *data)
 
 	if (!hsearch_r(search, ENTER, &res, ht->htab))
 		abort();
+}
+
+void *alloc_page(int prot)
+{
+	void *ret;
+	int flags;
+
+	flags = MAP_PRIVATE | MAP_ANONYMOUS;
+
+	ret = mmap(NULL, sysconf(_SC_PAGESIZE), prot, flags, -1, 0);
+	if (ret == MAP_FAILED)
+		abort();
+
+	return ret;
 }
