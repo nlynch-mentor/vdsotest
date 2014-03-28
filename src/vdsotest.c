@@ -23,6 +23,12 @@
 const char *argp_program_version = PACKAGE_VERSION;
 const char *argp_program_bug_address = PACKAGE_BUGREPORT;
 
+static struct hashtable test_suite_htab;
+static struct hashtable test_func_htab;
+
+static char *api_list;
+static char *test_type_list;
+
 static void inc_fail_count(struct ctx *ctx)
 {
 	ctx->fails++;
@@ -69,13 +75,6 @@ void __debug(const struct ctx *ctx, const char *fn, int line,
 	va_start(args, fmt);
 	vprintf(fmt, args);
 	va_end(args);
-}
-
-static struct hashtable test_suite_htab;
-
-void register_testsuite(const struct test_suite *ts)
-{
-	hashtable_add(&test_suite_htab, ts->name, ts);
 }
 
 static const struct test_suite *lookup_ts(const char *name)
@@ -210,10 +209,14 @@ testsuite_run_abi(struct ctx *ctx, const struct test_suite *ts)
 
 typedef enum testfunc_result (*testfunc_t)(struct ctx *, const struct test_suite *);
 
-static struct hashtable test_func_htab;
-
 static void register_testfunc(const char *name, testfunc_t func)
 {
+	char *new_test_type_list;
+
+	xasprintf(&new_test_type_list, "%s\t%s\n",
+		  test_type_list ? test_type_list : "", name);
+	xfree(test_type_list);
+	test_type_list = new_test_type_list;
 	hashtable_add(&test_func_htab, name, func);
 }
 
@@ -304,17 +307,23 @@ static error_t parse(int key, char *arg, struct argp_state *state)
 	return 0;
 }
 
-static const char vdsotest_doc[] = "where API must be one of:\n"
-	"\tclock-gettime-monotonic-coarse\n"
-	"\tclock-gettime-monotonic\n"
-	"\tclock-gettime-realtime-coarse\n"
-	"\tclock-gettime-realtime\n"
-	"\tgetcpu\n"
-	"\tgettimeofday\n"
-	"and TEST-TYPE must be one of:\n"
-	"\tabi\n"
-	"\tbench\n"
-	"\tverify\n";
+static char *vdsotest_help_filter(int key, const char *text, void *input)
+{
+	char *str = NULL;
+
+	if (key != ARGP_KEY_HELP_PRE_DOC)
+		return (char *)text;
+
+	xasprintf(&str,
+		  "where API must be one of:\n"
+		  "%s"
+		  "and TEST-TYPE must be one of:\n"
+		  "%s",
+		  api_list,
+		  test_type_list);
+
+	return str;
+}
 
 static const char vdsotest_args_doc[] = "API TEST-TYPE";
 
@@ -322,8 +331,20 @@ static const struct argp argparser = {
 	.options = options,
 	.parser = parse,
 	.args_doc = vdsotest_args_doc,
-	.doc = vdsotest_doc,
+	.help_filter = vdsotest_help_filter,
 };
+
+void register_testsuite(const struct test_suite *ts)
+{
+	char *new_api_list;
+
+	xasprintf(&new_api_list, "%s\t%s\n",
+		  api_list ? api_list : "", ts->name);
+	xfree(api_list);
+	api_list = new_api_list;
+
+	hashtable_add(&test_suite_htab, ts->name, ts);
+}
 
 int main(int argc, char **argv)
 {
