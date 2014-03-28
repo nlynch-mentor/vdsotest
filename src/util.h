@@ -69,5 +69,6 @@ timespec_delta(const struct timespec *before_ts,
 }
 
 void *alloc_page(int prot);
+void free_page(void *page);
 
 #endif

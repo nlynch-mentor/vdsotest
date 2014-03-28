@@ -121,3 +121,12 @@ void *alloc_page(int prot)
 
 	return ret;
 }
+
+void free_page(void *page)
+{
+	int err;
+
+	err = munmap(page, sysconf(_SC_PAGESIZE));
+	if (err)
+		abort();
+}
