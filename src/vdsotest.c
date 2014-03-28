@@ -20,6 +20,11 @@
 #include "util.h"
 #include "vdsotest.h"
 
+/* Valgrind uses SIGRTMAX.  Just try to use something in the middle of
+ * the range.
+ */
+#define TIMER_SIGNO (SIGRTMIN + ((SIGRTMAX - SIGRTMIN) / 2))
+
 const char *argp_program_version = PACKAGE_VERSION;
 const char *argp_program_bug_address = PACKAGE_BUGREPORT;
 
@@ -120,12 +125,12 @@ void ctx_start_timer(struct ctx *ctx)
 		.sa_sigaction = expiration_handler,
 	};
 
-	if (sigaction(SIGRTMAX, &sa, NULL))
+	if (sigaction(TIMER_SIGNO, &sa, NULL))
 		error(EXIT_FAILURE, errno, "sigaction");
 
 	sev = (struct sigevent) {
 		.sigev_notify = SIGEV_SIGNAL,
-		.sigev_signo = SIGRTMAX,
+		.sigev_signo = TIMER_SIGNO,
 		.sigev_value.sival_ptr = ctx,
 	};
 
