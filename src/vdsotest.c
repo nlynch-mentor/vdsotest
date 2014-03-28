@@ -139,6 +139,10 @@ void ctx_start_timer(struct ctx *ctx)
 
 	if (timer_settime(timer, 0, &ctx->duration, NULL))
 		error(EXIT_FAILURE, errno, "timer_settime");
+
+	/* FIXME: we currently leak the timer - need to add
+	 * corresponding call to timer_delete.
+	 */
 }
 
 /* Bench runs are really two tests: see how many vDSO calls we can
