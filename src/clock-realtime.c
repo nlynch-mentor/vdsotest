@@ -1,4 +1,4 @@
 #define CLOCK_ID CLOCK_REALTIME
-#define TS_NAME "clock-realtime"
+#define TS_SFX "realtime"
 
 #include "clock_gettime_template.c"

@@ -140,7 +140,7 @@ static void clock_gettime_bench(struct ctx *ctx, struct bench_results *res)
 
 
 static const struct test_suite clock_gettime_ts = {
-	.name = TS_NAME,
+	.name = "clock-gettime-" TS_SFX,
 	.bench = clock_gettime_bench,
 	.verify = clock_gettime_verify,
 };

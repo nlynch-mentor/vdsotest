@@ -305,10 +305,10 @@ static error_t parse(int key, char *arg, struct argp_state *state)
 }
 
 static const char vdsotest_doc[] = "where API must be one of:\n"
-	"\tclock-monotonic-coarse\n"
-	"\tclock-monotonic\n"
-	"\tclock-realtime-coarse\n"
-	"\tclock-realtime\n"
+	"\tclock-gettime-monotonic-coarse\n"
+	"\tclock-gettime-monotonic\n"
+	"\tclock-gettime-realtime-coarse\n"
+	"\tclock-gettime-realtime\n"
 	"\tgetcpu\n"
 	"\tgettimeofday\n"
 	"and TEST-TYPE must be one of:\n"
