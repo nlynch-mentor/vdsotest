@@ -103,7 +103,7 @@ static void getcpu_verify(struct ctx *ctx)
 		migrate(ctx, &cpus_allowed);
 		loops = random() % 1000000;
 
-		printf("loops = %ld\n", loops);
+		debug(ctx, "loops = %ld\n", loops);
 
 		for (i = 0; i < loops && !test_should_stop(ctx); i++) {
 			unsigned int cpu;

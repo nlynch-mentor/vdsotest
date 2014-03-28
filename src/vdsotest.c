@@ -171,7 +171,7 @@ testsuite_run_bench(struct ctx *ctx, const struct test_suite *ts)
 	if (ctx->fails)
 		return TF_FAIL;
 
-	printf("%s: syscalls = %llu, vdso calls = %llu\n", ts->name,
+	verbose(ctx, "%s: syscalls = %llu, vdso calls = %llu\n", ts->name,
 	       (unsigned long long)bres.sys_interval.calls,
 	       (unsigned long long)bres.vdso_interval.calls);
 
