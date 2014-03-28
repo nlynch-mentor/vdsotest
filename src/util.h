@@ -9,6 +9,8 @@
 
 #define NSEC_PER_SEC 1000000000
 
+#define ADDR_SPACE_END UINTPTR_MAX
+
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
 void *xmalloc(size_t sz);
