@@ -1,5 +1,7 @@
 #include <assert.h>
 #include <search.h>
+#include <stdarg.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -37,6 +39,21 @@ void *xrealloc(void *ptr, size_t sz)
 void xfree(void *ptr)
 {
 	free(ptr);
+}
+
+int xasprintf(char **strp, const char *fmt, ...)
+{
+	va_list args;
+	int ret;
+
+	va_start(args, fmt);
+	ret = vasprintf(strp, fmt, args);
+	va_end(args);
+
+	if (ret == -1)
+		abort();
+
+	return ret;
 }
 
 static void hashtable_init(struct hashtable *ht)

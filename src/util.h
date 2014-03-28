@@ -5,6 +5,8 @@
 #include <stdint.h>
 #include <time.h>
 
+#include "compiler.h"
+
 #define NSEC_PER_SEC 1000000000
 
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
@@ -13,6 +15,7 @@ void *xmalloc(size_t sz);
 void *xzmalloc(size_t sz);
 void *xrealloc(void *ptr, size_t sz);
 void xfree(void *ptr);
+int xasprintf(char **strp, const char *fmt, ...) __printf(2, 3);
 
 struct hashtable {
 	struct hsearch_data *htab;
