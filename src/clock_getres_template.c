@@ -31,29 +31,6 @@ static void clock_getres_libc_nofail(struct timespec *ts)
 		error(EXIT_FAILURE, errno, "clock_getres");
 }
 
-static bool timespecs_ordered(const struct timespec *first,
-			      const struct timespec *second)
-{
-	if (first->tv_sec < second->tv_sec)
-		return true;
-
-	if (first->tv_sec == second->tv_sec)
-		return first->tv_nsec <= second->tv_nsec;
-
-	return false;
-}
-
-static bool timespec_normalized(const struct timespec *ts)
-{
-	if (ts->tv_sec < 0)
-		return false;
-	if (ts->tv_nsec < 0)
-		return false;
-	if (ts->tv_nsec >= NSEC_PER_SEC)
-		return false;
-	return true;
-}
-
 static bool timespecs_equal(const struct timespec *first,
 			    const struct timespec *second)
 {
@@ -89,7 +66,7 @@ static void clock_getres_verify(struct ctx *ctx)
 			      kres.tv_sec, kres.tv_nsec);
 		}
 
-		if (timespecs_equal(&kres, &vres) {
+		if (timespecs_equal(&kres, &vres)) {
 			debug(ctx, "clock resolutions match ([%ld, %ld])\n",
 				kres.tv_sec, kres.tv_nsec);
 		} else {
@@ -132,7 +109,7 @@ static void clock_getres_bench(struct ctx *ctx, struct bench_results *res)
 
 
 static const struct test_suite clock_getres_ts = {
-	.name = TS_NAME,
+	.name = "clock-getres-" TS_SFX,
 	.bench = clock_getres_bench,
 	.verify = clock_getres_verify,
 };
