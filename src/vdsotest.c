@@ -206,6 +206,13 @@ static const struct argp_option options[] = {
 		.key = 'v',
 		.doc = "Enable verbose output",
 	},
+	{
+		.name = "maxfails",
+		.key = 'f',
+		.doc = "Maximum number of failures before terminating "
+		       "test run.",
+		.arg = "NUM",
+	},
 	{ 0 },
 };
 
@@ -224,6 +231,9 @@ static error_t parse(int key, char *arg, struct argp_state *state)
 		break;
 	case 'v':
 		ctx->verbose = true;
+		break;
+	case 'f':
+		ctx->max_fails = strtoull(arg, NULL, 0);
 		break;
 	case ARGP_KEY_ARG:
 		switch (state->arg_num) {
