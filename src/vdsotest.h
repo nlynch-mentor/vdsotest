@@ -96,5 +96,10 @@ static inline bool test_should_stop(const struct ctx *ctx)
 }
 
 void log_failure(struct ctx *ctx, const char *fmt, ...) __printf(2, 3);
+void verbose(const struct ctx *ctx, const char *fmt, ...) __printf(2, 3);
+
+void __debug(const struct ctx *ctx, const char *fn, int line,
+	     const char *fmt, ...) __printf(4, 5);
+#define debug(ctx, arg...) __debug((ctx), __func__, __LINE__, ## arg)
 
 #endif

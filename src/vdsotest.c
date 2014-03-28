@@ -44,6 +44,33 @@ void log_failure(struct ctx *ctx, const char *fmt, ...)
 	inc_fail_count(ctx);
 }
 
+void verbose(const struct ctx *ctx, const char *fmt, ...)
+{
+	va_list args;
+
+	if (!ctx->verbose && !ctx->debug)
+		return;
+
+	va_start(args, fmt);
+	vprintf(fmt, args);
+	va_end(args);
+}
+
+void __debug(const struct ctx *ctx, const char *fn, int line,
+	     const char *fmt, ...)
+{
+	va_list args;
+
+	if (!ctx->debug)
+		return;
+
+	printf("%s:%d: ", fn, line);
+
+	va_start(args, fmt);
+	vprintf(fmt, args);
+	va_end(args);
+}
+
 static struct hashtable test_suite_htab;
 
 void register_testsuite(const struct test_suite *ts)
