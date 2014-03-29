@@ -102,4 +102,14 @@ void __debug(const struct ctx *ctx, const char *fn, int line,
 	     const char *fmt, ...) __printf(4, 5);
 #define debug(ctx, arg...) __debug((ctx), __func__, __LINE__, ## arg)
 
+struct child_params {
+	const char *desc; /* description for diagnostic prints */
+	void (*func)(void *arg);
+	void *arg;
+	int expected_errno;
+	struct signal_set signal_set;  /* expected termination signals */
+};
+
+void run_as_child(struct ctx *ctx, const struct child_params *parms);
+
 #endif

@@ -13,6 +13,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/syscall.h>
+#include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -144,6 +145,69 @@ void ctx_start_timer(struct ctx *ctx)
 	 * corresponding call to timer_delete.
 	 */
 }
+
+void run_as_child(struct ctx *ctx, const struct child_params *parms)
+{
+	struct child_status {
+		int wstatus; /* waitpid result */
+		bool wsignaled;
+		union {
+			int wtermsig;    /* if wsignaled == true */
+			int wexitstatus; /* otherwise */
+		};
+	} cstatus;
+	pid_t pid;
+
+	cstatus = (struct child_status) { };
+
+	fflush(NULL);
+	pid = fork();
+	if (pid == 0) {
+		errno = 0;
+		parms->func(parms->arg);
+
+		if (errno != parms->expected_errno) {
+			fprintf(stderr, "%s: unexpected errno %d (%s), "
+				"expected %d (%s)\n",
+				parms->desc,
+				errno, strerror(errno),
+				parms->expected_errno,
+				strerror(parms->expected_errno));
+			exit(EXIT_FAILURE);
+		}
+		exit(EXIT_SUCCESS);
+	}
+
+	while (waitpid(pid, &cstatus.wstatus, 0) != pid) {
+		if (errno == EINTR)
+			continue;
+		error(EXIT_FAILURE, errno, "waitpid");
+	}
+
+	if (WIFEXITED(cstatus.wstatus)) {
+		cstatus.wsignaled = false;
+		cstatus.wexitstatus = WEXITSTATUS(cstatus.wstatus);
+	} else if (WIFSIGNALED(cstatus.wstatus)) {
+		cstatus.wsignaled = true;
+		cstatus.wtermsig = WTERMSIG(cstatus.wstatus);
+	} else {
+		error(EXIT_FAILURE, 0, "unhandled wait status %d",
+		      cstatus.wstatus);
+	}
+
+	if (!cstatus.wsignaled && cstatus.wexitstatus != EXIT_SUCCESS) {
+		log_failure(ctx, "%s: exited with status %d, "
+			    "expected %d\n", parms->desc,
+			    cstatus.wexitstatus, EXIT_SUCCESS);
+	}
+
+	if (cstatus.wsignaled &&
+	    !signal_in_set(&parms->signal_set, cstatus.wtermsig)) {
+		log_failure(ctx, "%s: terminated by unexpected signal %d\n",
+			  parms->desc, cstatus.wtermsig);
+	}
+}
+
 
 /* Bench runs are really two tests: see how many vDSO calls we can
  * make in a given period, then do the same for the syscall.  The
