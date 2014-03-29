@@ -280,19 +280,12 @@ static const struct child_params clock_gettime_abi_params[] = {
 	},
 };
 
-static void clock_gettime_abi_vdso(struct ctx *ctx)
+static void clock_gettime_abi(struct ctx *ctx)
 {
 	unsigned int i;
 
 	for (i = 0; i < ARRAY_SIZE(clock_gettime_abi_params); i++)
 		run_as_child(ctx, &clock_gettime_abi_params[i]);
-}
-
-static void clock_gettime_abi(struct ctx *ctx)
-{
-	/* Check assumptions about kernel behavior first */
-	/* clock_getres_abi_kernel(ctx); */
-	clock_gettime_abi_vdso(ctx);
 }
 
 
