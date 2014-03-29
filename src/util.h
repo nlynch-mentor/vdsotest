@@ -2,6 +2,7 @@
 #define VDSOTEST_UTIL_H
 
 #include <search.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <time.h>
 
@@ -70,5 +71,16 @@ timespec_delta(const struct timespec *before_ts,
 
 void *alloc_page(int prot);
 void free_page(void *page);
+
+struct signal_set {
+	uint64_t mask;
+};
+
+#define SIGNO_TO_BIT(n) (1 << (n))
+
+static inline bool signal_in_set(const struct signal_set *set, int sig)
+{
+	return set->mask & SIGNO_TO_BIT(sig);
+}
 
 #endif
