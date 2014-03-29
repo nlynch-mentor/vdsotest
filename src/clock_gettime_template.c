@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/mman.h>
 #include <sys/syscall.h>
 #include <sys/time.h>
 #include <unistd.h>
@@ -138,11 +139,118 @@ static void clock_gettime_bench(struct ctx *ctx, struct bench_results *res)
 	bench_interval_end(&res->sys_interval, calls);
 }
 
+static void sys_clock_gettime_simple(void *arg)
+{
+	syscall(SYS_clock_gettime, CLOCK_ID, arg);
+}
+
+static void sys_clock_gettime_prot(void *arg)
+{
+	void *buf;
+
+	buf = alloc_page((int)(unsigned long)arg);
+	syscall(SYS_clock_gettime, CLOCK_ID, buf);
+	free_page(buf);
+}
+
+static void clock_gettime_simple(void *arg)
+{
+	clock_gettime(CLOCK_ID, arg);
+}
+
+static void clock_gettime_prot(void *arg)
+{
+	void *buf;
+
+	buf = alloc_page((int)(unsigned long)arg);
+	clock_gettime(CLOCK_ID, buf);
+	free_page(buf);
+}
+
+static const struct child_params clock_gettime_abi_params[] = {
+	{
+		.desc = "passing NULL to SYS_clock_gettime",
+		.func = sys_clock_gettime_simple,
+		.arg = NULL,
+		.expected_errno = EFAULT,
+	},
+	{
+		.desc = "passing UINTPTR_MAX to SYS_clock_gettime",
+		.func = sys_clock_gettime_simple,
+		.arg = (void *)ADDR_SPACE_END,
+		.expected_errno = EFAULT,
+	},
+	{
+		.desc = "passing PROT_NONE page to SYS_clock_gettime",
+		.func = sys_clock_gettime_prot,
+		.arg = (void *)PROT_NONE,
+		.expected_errno = EFAULT,
+	},
+	{
+		.desc = "passing PROT_READ page to SYS_clock_gettime",
+		.func = sys_clock_gettime_prot,
+		.arg = (void *)PROT_READ,
+		.expected_errno = EFAULT,
+	},
+	{
+		.desc = "passing NULL to clock_gettime",
+		.func = clock_gettime_simple,
+		.arg = NULL,
+		.expected_errno = EFAULT,
+		.signal_set = {
+			.mask = SIGNO_TO_BIT(SIGSEGV),
+		},
+	},
+	{
+		.desc = "passing UINTPTR_MAX to clock_gettime",
+		.func = clock_gettime_simple,
+		.arg = (void *)ADDR_SPACE_END,
+		.expected_errno = EFAULT,
+		.signal_set = {
+			.mask = SIGNO_TO_BIT(SIGSEGV),
+		},
+	},
+	{
+		.desc = "passing PROT_NONE page to clock_gettime",
+		.func = clock_gettime_prot,
+		.arg = (void *)PROT_NONE,
+		.expected_errno = EFAULT,
+		.signal_set = {
+			.mask = SIGNO_TO_BIT(SIGSEGV),
+		},
+	},
+	{
+		.desc = "passing PROT_READ page to clock_gettime",
+		.func = clock_gettime_prot,
+		.arg = (void *)PROT_READ,
+		.expected_errno = EFAULT,
+		.signal_set = {
+			.mask = SIGNO_TO_BIT(SIGSEGV),
+		},
+	},
+};
+
+static void clock_gettime_abi_vdso(struct ctx *ctx)
+{
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(clock_gettime_abi_params); i++)
+		run_as_child(ctx, &clock_gettime_abi_params[i]);
+}
+
+static void clock_gettime_abi(struct ctx *ctx)
+{
+	/* Check assumptions about kernel behavior first */
+	/* clock_getres_abi_kernel(ctx); */
+	clock_gettime_abi_vdso(ctx);
+}
+
 
 static const struct test_suite clock_gettime_ts = {
 	.name = "clock-gettime-" TS_SFX,
 	.bench = clock_gettime_bench,
 	.verify = clock_gettime_verify,
+	.abi = clock_gettime_abi,
 };
 
 static void __constructor clock_gettime_init(void)
