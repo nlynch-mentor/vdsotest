@@ -167,7 +167,17 @@ static void clock_getres_abi_kernel(struct ctx *ctx)
 
 static void clock_getres_simple(void *arg)
 {
-	clock_getres(CLOCK_ID, arg);
+	int err;
+
+	err = clock_getres(CLOCK_ID, arg);
+
+	/* This is kind of cheesy, but clock_getres is supposed to accept a
+	 * NULL destination argument and return 0 for valid clock ids.
+	 */
+	if (arg == NULL && err != 0) {
+		error(EXIT_FAILURE, errno, "clock_getres did not accept NULL "
+		      "argument");
+	}
 }
 
 static void clock_getres_prot(void *arg)
