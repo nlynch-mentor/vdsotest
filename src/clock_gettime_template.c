@@ -167,6 +167,24 @@ static void clock_gettime_prot(void *arg)
 	free_page(buf);
 }
 
+static void clock_gettime_bogus_id(void *arg)
+{
+	struct timespec ts;
+
+	if (arg)
+		syscall(SYS_clock_gettime, (clockid_t)-1, &ts);
+	else
+		clock_gettime((clockid_t)-1, &ts);
+}
+
+static void clock_gettime_bogus_id_null(void *arg)
+{
+	if (arg)
+		syscall(SYS_clock_gettime, (clockid_t)-1, NULL);
+	else
+		clock_gettime((clockid_t)-1, NULL);
+}
+
 static const struct child_params clock_gettime_abi_params[] = {
 	{
 		.desc = "passing NULL to SYS_clock_gettime",
@@ -191,6 +209,22 @@ static const struct child_params clock_gettime_abi_params[] = {
 		.func = sys_clock_gettime_prot,
 		.arg = (void *)PROT_READ,
 		.expected_errno = EFAULT,
+	},
+	{
+		/* This will be duplicated across the different clock
+		 * id modules.  Oh well.
+		 */
+		.desc = "passing bogus clock id to SYS_clock_gettime",
+		.func = clock_gettime_bogus_id,
+		.arg = (void *)true, /* force syscall */
+		.expected_errno = EINVAL,
+	},
+	{
+		/* This one too. */
+		.desc = "passing bogus clock id and NULL to SYS_clock_gettime",
+		.func = clock_gettime_bogus_id_null,
+		.arg = (void *)true, /* force syscall */
+		.expected_errno = EINVAL,
 	},
 	{
 		.desc = "passing NULL to clock_gettime",
@@ -227,6 +261,22 @@ static const struct child_params clock_gettime_abi_params[] = {
 		.signal_set = {
 			.mask = SIGNO_TO_BIT(SIGSEGV),
 		},
+	},
+	{
+		/* This will be duplicated across the different clock
+		 * id modules.  Oh well.
+		 */
+		.desc = "passing bogus clock id to clock_gettime",
+		.func = clock_gettime_bogus_id,
+		.arg = (void *)false, /* use vdso */
+		.expected_errno = EINVAL,
+	},
+	{
+		/* This one too. */
+		.desc = "passing bogus clock id and NULL to clock_gettime",
+		.func = clock_gettime_bogus_id_null,
+		.arg = (void *)false, /* use vdso */
+		.expected_errno = EINVAL,
 	},
 };
 
