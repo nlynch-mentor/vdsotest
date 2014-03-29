@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/mman.h>
 #include <sys/syscall.h>
 #include <sys/time.h>
 #include <unistd.h>
@@ -107,11 +108,79 @@ static void clock_getres_bench(struct ctx *ctx, struct bench_results *res)
 	bench_interval_end(&res->sys_interval, calls);
 }
 
+/* This is just sanity checking, hence error() on unexpected results */
+static void clock_getres_abi_kernel(struct ctx *ctx)
+{
+	void *buf;
+	int err;
+
+	errno = 0;
+	err = syscall(SYS_clock_getres, CLOCK_ID, NULL);
+	if (err != 0) {
+		error(EXIT_FAILURE, errno,
+		      "passing NULL to SYS_clock_getres failed");
+	}
+
+	buf = (void *)ADDR_SPACE_END;
+	errno = 0;
+	err = syscall(SYS_clock_getres, CLOCK_ID, buf);
+	if (err == 0) {
+		error(EXIT_FAILURE, 0,
+		      "passing %p to SYS_clock_getres succeeded", buf);
+	}
+	if (errno != EFAULT) {
+		error(EXIT_FAILURE, errno,
+		      "passing %p to SYS_clock_getres got unexpected "
+		      "errno %d", buf, errno);
+	}
+
+	buf = alloc_page(PROT_NONE);
+	errno = 0;
+	err = syscall(SYS_clock_getres, CLOCK_ID, buf);
+	if (err == 0) {
+		error(EXIT_FAILURE, 0,
+		      "passing PROT_NONE page at %p to SYS_clock_getres "
+		      "succeeded", buf);
+	}
+	if (errno != EFAULT) {
+		error(EXIT_FAILURE, errno,
+		      "passing PROT_NONE page at %p to SYS_clock_getres "
+		      "got unexpected errno %d", buf, errno);
+	}
+	free_page(buf);
+
+	buf = alloc_page(PROT_READ);
+	errno = 0;
+	err = syscall(SYS_clock_getres, CLOCK_ID, buf);
+	if (err == 0) {
+		error(EXIT_FAILURE, 0,
+		      "passing PROT_READ page at %p to SYS_clock_getres "
+		      "succeeded", buf);
+	}
+	if (errno != EFAULT) {
+		error(EXIT_FAILURE, errno,
+		      "passing PROT_READ page at %p to SYS_clock_getres "
+		      "got unexpected errno %d", buf, errno);
+	}
+	free_page(buf);
+}
+
+static void clock_getres_abi_vdso(struct ctx *ctx)
+{
+}
+
+static void clock_getres_abi(struct ctx *ctx)
+{
+	/* Check assumptions about kernel behavior first */
+	clock_getres_abi_kernel(ctx);
+	clock_getres_abi_vdso(ctx);
+}
 
 static const struct test_suite clock_getres_ts = {
 	.name = "clock-getres-" TS_SFX,
 	.bench = clock_getres_bench,
 	.verify = clock_getres_verify,
+	.abi = clock_getres_abi,
 };
 
 static void __constructor clock_getres_init(void)
