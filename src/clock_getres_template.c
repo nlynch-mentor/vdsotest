@@ -190,18 +190,27 @@ static const struct child_params clock_getres_abi_params[] = {
 		.func = clock_getres_simple,
 		.arg = (void *)ADDR_SPACE_END,
 		.expected_errno = EFAULT,
+		.signal_set = {
+			.mask = SIGNO_TO_BIT(SIGSEGV),
+		},
 	},
 	{
 		.desc = "passing PROT_NONE page to clock_getres",
 		.func = clock_getres_prot,
 		.arg = (void *)PROT_NONE,
 		.expected_errno = EFAULT,
+		.signal_set = {
+			.mask = SIGNO_TO_BIT(SIGSEGV),
+		},
 	},
 	{
 		.desc = "passing PROT_READ page to clock_getres",
 		.func = clock_getres_prot,
 		.arg = (void *)PROT_READ,
 		.expected_errno = EFAULT,
+		.signal_set = {
+			.mask = SIGNO_TO_BIT(SIGSEGV),
+		},
 	},
 };
 
