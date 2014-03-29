@@ -165,8 +165,52 @@ static void clock_getres_abi_kernel(struct ctx *ctx)
 	free_page(buf);
 }
 
+static void clock_getres_simple(void *arg)
+{
+	clock_getres(CLOCK_ID, arg);
+}
+
+static void clock_getres_prot(void *arg)
+{
+	void *buf;
+
+	buf = alloc_page((int)(unsigned long)arg);
+	clock_getres(CLOCK_ID, buf);
+	free_page(buf);
+}
+
+static const struct child_params clock_getres_abi_params[] = {
+	{
+		.desc = "passing NULL to clock_getres",
+		.func = clock_getres_simple,
+		.arg = NULL,
+	},
+	{
+		.desc = "passing UINTPTR_MAX to clock_getres",
+		.func = clock_getres_simple,
+		.arg = (void *)ADDR_SPACE_END,
+		.expected_errno = EFAULT,
+	},
+	{
+		.desc = "passing PROT_NONE page to clock_getres",
+		.func = clock_getres_prot,
+		.arg = (void *)PROT_NONE,
+		.expected_errno = EFAULT,
+	},
+	{
+		.desc = "passing PROT_READ page to clock_getres",
+		.func = clock_getres_prot,
+		.arg = (void *)PROT_READ,
+		.expected_errno = EFAULT,
+	},
+};
+
 static void clock_getres_abi_vdso(struct ctx *ctx)
 {
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(clock_getres_abi_params); i++)
+		run_as_child(ctx, &clock_getres_abi_params[i]);
 }
 
 static void clock_getres_abi(struct ctx *ctx)
