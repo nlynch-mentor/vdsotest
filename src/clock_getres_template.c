@@ -174,8 +174,6 @@ static void clock_getres_bogus_id_null(void *arg, struct syscall_result *res)
 }
 
 static const struct child_params clock_getres_abi_params[] = {
-	/* Add tests for bogus clock id, null destination */
-
 	/* Kernel sanity checks */
 
 	{
