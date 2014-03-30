@@ -150,6 +150,29 @@ static void clock_getres_prot(void *arg, struct syscall_result *res)
 	free_page(buf);
 }
 
+static void clock_getres_bogus_id(void *arg, struct syscall_result *res)
+{
+	struct timespec ts;
+	int err;
+
+	syscall_prepare();
+	err = arg ? syscall(SYS_clock_getres, (clockid_t)-1, &ts) :
+		clock_getres((clockid_t)-1, &ts);
+
+	record_syscall_result(res, err, errno);
+}
+
+static void clock_getres_bogus_id_null(void *arg, struct syscall_result *res)
+{
+	int err;
+
+	syscall_prepare();
+	err = arg ? syscall(SYS_clock_getres, (clockid_t)-1, NULL) :
+		clock_getres((clockid_t)-1, NULL);
+
+	record_syscall_result(res, err, errno);
+}
+
 static const struct child_params clock_getres_abi_params[] = {
 	/* Add tests for bogus clock id, null destination */
 
@@ -190,6 +213,24 @@ static const struct child_params clock_getres_abi_params[] = {
 			.mask = SIGNO_TO_BIT(SIGSEGV),
 		},
 	},
+	{
+		/* This will be duplicated across the different clock
+		 * id modules.  Oh well.
+		 */
+		.desc = "passing bogus clock id to SYS_clock_getres",
+		.func = clock_getres_bogus_id,
+		.arg = (void *)true, /* force syscall */
+		.expected_ret = -1,
+		.expected_errno = EINVAL,
+	},
+	{
+		/* This one too. */
+		.desc = "passing bogus clock id and NULL to SYS_clock_getres",
+		.func = clock_getres_bogus_id_null,
+		.arg = (void *)true, /* force syscall */
+		.expected_ret = -1,
+		.expected_errno = EINVAL,
+	},
 
 	/* The below may be serviced by a vDSO, but not necessarily. */
 
@@ -227,6 +268,24 @@ static const struct child_params clock_getres_abi_params[] = {
 		.signal_set = {
 			.mask = SIGNO_TO_BIT(SIGSEGV),
 		},
+	},
+	{
+		/* This will be duplicated across the different clock
+		 * id modules.  Oh well.
+		 */
+		.desc = "passing bogus clock id to clock_getres",
+		.func = clock_getres_bogus_id,
+		.arg = (void *)false, /* use vdso */
+		.expected_ret = -1,
+		.expected_errno = EINVAL,
+	},
+	{
+		/* This one too. */
+		.desc = "passing bogus clock id and NULL to clock_getres",
+		.func = clock_getres_bogus_id_null,
+		.arg = (void *)false, /* use vdso */
+		.expected_ret = -1,
+		.expected_errno = EINVAL,
 	},
 };
 
