@@ -108,60 +108,24 @@ static void clock_getres_bench(struct ctx *ctx, struct bench_results *res)
 	bench_interval_end(&res->sys_interval, calls);
 }
 
-/* This is just sanity checking, hence error() on unexpected results */
-static void clock_getres_abi_kernel(struct ctx *ctx)
+static void sys_clock_getres_simple(void *arg, struct syscall_result *res)
+{
+	int err;
+
+	syscall_prepare();
+	err = syscall(SYS_clock_getres, CLOCK_ID, arg);
+	record_syscall_result(res, err, errno);
+}
+
+static void sys_clock_getres_prot(void *arg, struct syscall_result *res)
 {
 	void *buf;
 	int err;
 
-	errno = 0;
-	err = syscall(SYS_clock_getres, CLOCK_ID, NULL);
-	if (err != 0) {
-		error(EXIT_FAILURE, errno,
-		      "passing NULL to SYS_clock_getres failed");
-	}
-
-	buf = (void *)ADDR_SPACE_END;
-	errno = 0;
+	buf = alloc_page((int)(unsigned long)arg);
+	syscall_prepare();
 	err = syscall(SYS_clock_getres, CLOCK_ID, buf);
-	if (err == 0) {
-		error(EXIT_FAILURE, 0,
-		      "passing %p to SYS_clock_getres succeeded", buf);
-	}
-	if (errno != EFAULT) {
-		error(EXIT_FAILURE, errno,
-		      "passing %p to SYS_clock_getres got unexpected "
-		      "errno %d", buf, errno);
-	}
-
-	buf = alloc_page(PROT_NONE);
-	errno = 0;
-	err = syscall(SYS_clock_getres, CLOCK_ID, buf);
-	if (err == 0) {
-		error(EXIT_FAILURE, 0,
-		      "passing PROT_NONE page at %p to SYS_clock_getres "
-		      "succeeded", buf);
-	}
-	if (errno != EFAULT) {
-		error(EXIT_FAILURE, errno,
-		      "passing PROT_NONE page at %p to SYS_clock_getres "
-		      "got unexpected errno %d", buf, errno);
-	}
-	free_page(buf);
-
-	buf = alloc_page(PROT_READ);
-	errno = 0;
-	err = syscall(SYS_clock_getres, CLOCK_ID, buf);
-	if (err == 0) {
-		error(EXIT_FAILURE, 0,
-		      "passing PROT_READ page at %p to SYS_clock_getres "
-		      "succeeded", buf);
-	}
-	if (errno != EFAULT) {
-		error(EXIT_FAILURE, errno,
-		      "passing PROT_READ page at %p to SYS_clock_getres "
-		      "got unexpected errno %d", buf, errno);
-	}
+	record_syscall_result(res, err, errno);
 	free_page(buf);
 }
 
@@ -187,6 +151,48 @@ static void clock_getres_prot(void *arg, struct syscall_result *res)
 }
 
 static const struct child_params clock_getres_abi_params[] = {
+	/* Add tests for bogus clock id, null destination */
+
+	/* Kernel sanity checks */
+
+	{
+		.desc = "passing NULL to sys_clock_getres",
+		.func = sys_clock_getres_simple,
+		.arg = NULL,
+	},
+	{
+		.desc = "passing UINTPTR_MAX to sys_clock_getres",
+		.func = sys_clock_getres_simple,
+		.arg = (void *)ADDR_SPACE_END,
+		.expected_ret = -1,
+		.expected_errno = EFAULT,
+		.signal_set = {
+			.mask = SIGNO_TO_BIT(SIGSEGV),
+		},
+	},
+	{
+		.desc = "passing PROT_NONE page to sys_clock_getres",
+		.func = sys_clock_getres_prot,
+		.arg = (void *)PROT_NONE,
+		.expected_ret = -1,
+		.expected_errno = EFAULT,
+		.signal_set = {
+			.mask = SIGNO_TO_BIT(SIGSEGV),
+		},
+	},
+	{
+		.desc = "passing PROT_READ page to sys_clock_getres",
+		.func = sys_clock_getres_prot,
+		.arg = (void *)PROT_READ,
+		.expected_ret = -1,
+		.expected_errno = EFAULT,
+		.signal_set = {
+			.mask = SIGNO_TO_BIT(SIGSEGV),
+		},
+	},
+
+	/* The below may be serviced by a vDSO, but not necessarily. */
+
 	{
 		.desc = "passing NULL to clock_getres",
 		.func = clock_getres_simple,
@@ -224,19 +230,12 @@ static const struct child_params clock_getres_abi_params[] = {
 	},
 };
 
-static void clock_getres_abi_vdso(struct ctx *ctx)
+static void clock_getres_abi(struct ctx *ctx)
 {
 	unsigned int i;
 
 	for (i = 0; i < ARRAY_SIZE(clock_getres_abi_params); i++)
 		run_as_child(ctx, &clock_getres_abi_params[i]);
-}
-
-static void clock_getres_abi(struct ctx *ctx)
-{
-	/* Check assumptions about kernel behavior first */
-	clock_getres_abi_kernel(ctx);
-	clock_getres_abi_vdso(ctx);
 }
 
 static const struct test_suite clock_getres_ts = {
