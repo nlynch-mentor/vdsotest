@@ -205,6 +205,9 @@ static void clock_gettime_bogus_id_null(void *arg, struct syscall_result *res)
 }
 
 static const struct child_params clock_gettime_abi_params[] = {
+
+	/* Kernel sanity checks */
+
 	{
 		.desc = "passing NULL to SYS_clock_gettime",
 		.func = sys_clock_gettime_simple,
@@ -251,6 +254,9 @@ static const struct child_params clock_gettime_abi_params[] = {
 		.expected_ret = -1,
 		.expected_errno = EINVAL,
 	},
+
+	/* The below may be serviced by a vDSO, but not necessarily. */
+
 	{
 		.desc = "passing NULL to clock_gettime",
 		.func = clock_gettime_simple,
