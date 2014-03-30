@@ -163,18 +163,29 @@ void run_as_child(struct ctx *ctx, const struct child_params *parms)
 	fflush(NULL);
 	pid = fork();
 	if (pid == 0) {
-		errno = 0;
-		parms->func(parms->arg);
+		struct syscall_result syscall_result;
 
-		if (errno != parms->expected_errno) {
+		parms->func(parms->arg, &syscall_result);
+
+		if (syscall_result.sr_ret != parms->expected_ret) {
+			fprintf(stderr, "%s: unexpected return value %d, "
+				"expected %d\n", parms->desc,
+				syscall_result.sr_ret,
+				parms->expected_ret);
+			exit(EXIT_FAILURE);
+		}
+
+		if (syscall_result.sr_errno != parms->expected_errno) {
 			fprintf(stderr, "%s: unexpected errno %d (%s), "
 				"expected %d (%s)\n",
 				parms->desc,
-				errno, strerror(errno),
+				syscall_result.sr_errno,
+				strerror(syscall_result.sr_errno),
 				parms->expected_errno,
 				strerror(parms->expected_errno));
 			exit(EXIT_FAILURE);
 		}
+
 		exit(EXIT_SUCCESS);
 	}
 

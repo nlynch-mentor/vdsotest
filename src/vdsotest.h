@@ -102,10 +102,31 @@ void __debug(const struct ctx *ctx, const char *fn, int line,
 	     const char *fmt, ...) __printf(4, 5);
 #define debug(ctx, arg...) __debug((ctx), __func__, __LINE__, ## arg)
 
+struct syscall_result {
+	int sr_ret;
+	int sr_errno;
+};
+
+static inline void record_syscall_result(struct syscall_result *res,
+					 int sr_ret, int sr_errno)
+{
+	*res = (struct syscall_result) {
+		.sr_ret = sr_ret,
+		.sr_errno = sr_errno,
+	};
+}
+
+static inline void syscall_prepare(void)
+{
+	errno = 0;
+}
+
 struct child_params {
 	const char *desc; /* description for diagnostic prints */
-	void (*func)(void *arg);
+	void (*func)(void *arg, struct syscall_result *res);
 	void *arg;
+	struct syscall_result syscall_result; /* expected syscall results */
+	int expected_ret;
 	int expected_errno;
 	struct signal_set signal_set;  /* expected termination signals */
 };

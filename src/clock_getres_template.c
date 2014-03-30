@@ -165,27 +165,24 @@ static void clock_getres_abi_kernel(struct ctx *ctx)
 	free_page(buf);
 }
 
-static void clock_getres_simple(void *arg)
+static void clock_getres_simple(void *arg, struct syscall_result *res)
 {
 	int err;
 
+	syscall_prepare();
 	err = clock_getres(CLOCK_ID, arg);
-
-	/* This is kind of cheesy, but clock_getres is supposed to accept a
-	 * NULL destination argument and return 0 for valid clock ids.
-	 */
-	if (arg == NULL && err != 0) {
-		error(EXIT_FAILURE, errno, "clock_getres did not accept NULL "
-		      "argument");
-	}
+	record_syscall_result(res, err, errno);
 }
 
-static void clock_getres_prot(void *arg)
+static void clock_getres_prot(void *arg, struct syscall_result *res)
 {
 	void *buf;
+	int err;
 
 	buf = alloc_page((int)(unsigned long)arg);
-	clock_getres(CLOCK_ID, buf);
+	syscall_prepare();
+	err = clock_getres(CLOCK_ID, buf);
+	record_syscall_result(res, err, errno);
 	free_page(buf);
 }
 
@@ -199,6 +196,7 @@ static const struct child_params clock_getres_abi_params[] = {
 		.desc = "passing UINTPTR_MAX to clock_getres",
 		.func = clock_getres_simple,
 		.arg = (void *)ADDR_SPACE_END,
+		.expected_ret = -1,
 		.expected_errno = EFAULT,
 		.signal_set = {
 			.mask = SIGNO_TO_BIT(SIGSEGV),
@@ -208,6 +206,7 @@ static const struct child_params clock_getres_abi_params[] = {
 		.desc = "passing PROT_NONE page to clock_getres",
 		.func = clock_getres_prot,
 		.arg = (void *)PROT_NONE,
+		.expected_ret = -1,
 		.expected_errno = EFAULT,
 		.signal_set = {
 			.mask = SIGNO_TO_BIT(SIGSEGV),
@@ -217,6 +216,7 @@ static const struct child_params clock_getres_abi_params[] = {
 		.desc = "passing PROT_READ page to clock_getres",
 		.func = clock_getres_prot,
 		.arg = (void *)PROT_READ,
+		.expected_ret = -1,
 		.expected_errno = EFAULT,
 		.signal_set = {
 			.mask = SIGNO_TO_BIT(SIGSEGV),

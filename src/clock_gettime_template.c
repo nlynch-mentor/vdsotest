@@ -139,50 +139,69 @@ static void clock_gettime_bench(struct ctx *ctx, struct bench_results *res)
 	bench_interval_end(&res->sys_interval, calls);
 }
 
-static void sys_clock_gettime_simple(void *arg)
+static void sys_clock_gettime_simple(void *arg, struct syscall_result *res)
 {
-	syscall(SYS_clock_gettime, CLOCK_ID, arg);
+	int err;
+
+	syscall_prepare();
+	err = syscall(SYS_clock_gettime, CLOCK_ID, arg);
+	record_syscall_result(res, err, errno);
 }
 
-static void sys_clock_gettime_prot(void *arg)
+static void sys_clock_gettime_prot(void *arg, struct syscall_result *res)
 {
 	void *buf;
+	int err;
 
 	buf = alloc_page((int)(unsigned long)arg);
-	syscall(SYS_clock_gettime, CLOCK_ID, buf);
+	syscall_prepare();
+	err = syscall(SYS_clock_gettime, CLOCK_ID, buf);
+	record_syscall_result(res, err, errno);
 	free_page(buf);
 }
 
-static void clock_gettime_simple(void *arg)
+static void clock_gettime_simple(void *arg, struct syscall_result *res)
 {
-	clock_gettime(CLOCK_ID, arg);
+	int err;
+
+	syscall_prepare();
+	err = clock_gettime(CLOCK_ID, arg);
+	record_syscall_result(res, err, errno);
 }
 
-static void clock_gettime_prot(void *arg)
+static void clock_gettime_prot(void *arg, struct syscall_result *res)
 {
 	void *buf;
+	int err;
 
 	buf = alloc_page((int)(unsigned long)arg);
-	clock_gettime(CLOCK_ID, buf);
+	syscall_prepare();
+	err = clock_gettime(CLOCK_ID, buf);
+	record_syscall_result(res, err, errno);
 	free_page(buf);
 }
 
-static void clock_gettime_bogus_id(void *arg)
+static void clock_gettime_bogus_id(void *arg, struct syscall_result *res)
 {
 	struct timespec ts;
+	int err;
 
-	if (arg)
-		syscall(SYS_clock_gettime, (clockid_t)-1, &ts);
-	else
+	syscall_prepare();
+	err = arg ? syscall(SYS_clock_gettime, (clockid_t)-1, &ts) :
 		clock_gettime((clockid_t)-1, &ts);
+
+	record_syscall_result(res, err, errno);
 }
 
-static void clock_gettime_bogus_id_null(void *arg)
+static void clock_gettime_bogus_id_null(void *arg, struct syscall_result *res)
 {
-	if (arg)
-		syscall(SYS_clock_gettime, (clockid_t)-1, NULL);
-	else
+	int err;
+
+	syscall_prepare();
+	err = arg ? syscall(SYS_clock_gettime, (clockid_t)-1, NULL) :
 		clock_gettime((clockid_t)-1, NULL);
+
+	record_syscall_result(res, err, errno);
 }
 
 static const struct child_params clock_gettime_abi_params[] = {
@@ -190,24 +209,28 @@ static const struct child_params clock_gettime_abi_params[] = {
 		.desc = "passing NULL to SYS_clock_gettime",
 		.func = sys_clock_gettime_simple,
 		.arg = NULL,
+		.expected_ret = -1,
 		.expected_errno = EFAULT,
 	},
 	{
 		.desc = "passing UINTPTR_MAX to SYS_clock_gettime",
 		.func = sys_clock_gettime_simple,
 		.arg = (void *)ADDR_SPACE_END,
+		.expected_ret = -1,
 		.expected_errno = EFAULT,
 	},
 	{
 		.desc = "passing PROT_NONE page to SYS_clock_gettime",
 		.func = sys_clock_gettime_prot,
 		.arg = (void *)PROT_NONE,
+		.expected_ret = -1,
 		.expected_errno = EFAULT,
 	},
 	{
 		.desc = "passing PROT_READ page to SYS_clock_gettime",
 		.func = sys_clock_gettime_prot,
 		.arg = (void *)PROT_READ,
+		.expected_ret = -1,
 		.expected_errno = EFAULT,
 	},
 	{
@@ -217,6 +240,7 @@ static const struct child_params clock_gettime_abi_params[] = {
 		.desc = "passing bogus clock id to SYS_clock_gettime",
 		.func = clock_gettime_bogus_id,
 		.arg = (void *)true, /* force syscall */
+		.expected_ret = -1,
 		.expected_errno = EINVAL,
 	},
 	{
@@ -224,12 +248,14 @@ static const struct child_params clock_gettime_abi_params[] = {
 		.desc = "passing bogus clock id and NULL to SYS_clock_gettime",
 		.func = clock_gettime_bogus_id_null,
 		.arg = (void *)true, /* force syscall */
+		.expected_ret = -1,
 		.expected_errno = EINVAL,
 	},
 	{
 		.desc = "passing NULL to clock_gettime",
 		.func = clock_gettime_simple,
 		.arg = NULL,
+		.expected_ret = -1,
 		.expected_errno = EFAULT,
 		.signal_set = {
 			.mask = SIGNO_TO_BIT(SIGSEGV),
@@ -239,6 +265,7 @@ static const struct child_params clock_gettime_abi_params[] = {
 		.desc = "passing UINTPTR_MAX to clock_gettime",
 		.func = clock_gettime_simple,
 		.arg = (void *)ADDR_SPACE_END,
+		.expected_ret = -1,
 		.expected_errno = EFAULT,
 		.signal_set = {
 			.mask = SIGNO_TO_BIT(SIGSEGV),
@@ -248,6 +275,7 @@ static const struct child_params clock_gettime_abi_params[] = {
 		.desc = "passing PROT_NONE page to clock_gettime",
 		.func = clock_gettime_prot,
 		.arg = (void *)PROT_NONE,
+		.expected_ret = -1,
 		.expected_errno = EFAULT,
 		.signal_set = {
 			.mask = SIGNO_TO_BIT(SIGSEGV),
@@ -257,6 +285,7 @@ static const struct child_params clock_gettime_abi_params[] = {
 		.desc = "passing PROT_READ page to clock_gettime",
 		.func = clock_gettime_prot,
 		.arg = (void *)PROT_READ,
+		.expected_ret = -1,
 		.expected_errno = EFAULT,
 		.signal_set = {
 			.mask = SIGNO_TO_BIT(SIGSEGV),
@@ -269,6 +298,7 @@ static const struct child_params clock_gettime_abi_params[] = {
 		.desc = "passing bogus clock id to clock_gettime",
 		.func = clock_gettime_bogus_id,
 		.arg = (void *)false, /* use vdso */
+		.expected_ret = -1,
 		.expected_errno = EINVAL,
 	},
 	{
@@ -276,6 +306,7 @@ static const struct child_params clock_gettime_abi_params[] = {
 		.desc = "passing bogus clock id and NULL to clock_gettime",
 		.func = clock_gettime_bogus_id_null,
 		.arg = (void *)false, /* use vdso */
+		.expected_ret = -1,
 		.expected_errno = EINVAL,
 	},
 };
