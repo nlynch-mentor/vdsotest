@@ -3,5 +3,6 @@
 
 #define __constructor  __attribute__((constructor))
 #define __printf(a, b) __attribute__((format(printf, a, b)))
+#define __pure         __attribute__((pure))
 
 #endif
