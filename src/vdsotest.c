@@ -210,7 +210,7 @@ void run_as_child(struct ctx *ctx, const struct child_params *parms)
 		log_failure(ctx, "%s: terminated by unexpected signal %d\n",
 			  parms->desc, cstatus.wtermsig);
 	} else {
-		verbose(ctx, "%-60s OK\n", parms->desc);
+		verbose(ctx, "%-70s OK\n", parms->desc);
 	}
 }
 
