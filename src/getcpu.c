@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/mman.h>
 #include <sys/types.h>
 #include <sys/syscall.h>
 #include <unistd.h>
@@ -201,6 +202,254 @@ static void getcpu_verify(struct ctx *ctx)
 	}
 }
 
+struct getcpu_args {
+	unsigned int *cpu;
+	unsigned int *node;
+	void *tcache;
+	bool force_syscall;
+};
+
+enum getcpu_arg_type {
+	valid,
+	nullptr,
+	bogus,
+	prot_none,
+	prot_read,
+	getcpu_arg_type_max,
+};
+
+static const char *getcpu_arg_type_str[] = {
+	[valid] = "valid",
+	[nullptr] = "NULL",
+	[bogus] = "UINTPTR_MAX",
+	[prot_none] = "page (PROT_NONE)",
+	[prot_read] = "page (PROT_READ)",
+};
+
+static void do_getcpu(void *arg, struct syscall_result *res)
+{
+	struct getcpu_args *args = arg;
+	int err;
+
+	syscall_prepare();
+	if (args->force_syscall) {
+		err = getcpu_syscall_wrapper(args->cpu, args->node,
+					     args->tcache);
+	} else {
+		err = getcpu(args->cpu, args->node, args->tcache);
+	}
+
+	record_syscall_result(res, err, errno);
+}
+
+static void *getcpu_arg_alloc(enum getcpu_arg_type t)
+{
+	void *ret;
+
+	switch (t) {
+	case valid:
+		ret = xmalloc(sysconf(_SC_PAGESIZE));
+		break;
+	case nullptr:
+		ret = NULL;
+		break;
+	case bogus:
+		ret = (void *)ADDR_SPACE_END;
+		break;
+	case prot_none:
+		ret = alloc_page(PROT_NONE);
+		break;
+	case prot_read:
+		ret = alloc_page(PROT_READ);
+		break;
+	default:
+		assert(false);
+		break;
+	}
+
+	return ret;
+}
+
+static void getcpu_arg_release(void *buf, enum getcpu_arg_type t)
+{
+	switch (t) {
+	case valid:
+		xfree(buf);
+		break;
+	case nullptr:
+	case bogus:
+		break;
+	case prot_none:
+	case prot_read:
+		free_page(buf);
+		break;
+	default:
+		assert(false);
+		break;
+	}
+}
+
+static bool __pure getcpu_args_should_fault(enum getcpu_arg_type tv,
+					    enum getcpu_arg_type tz,
+					    enum getcpu_arg_type tcache)
+{
+	switch (tv) {
+	case valid:
+	case nullptr:
+		break;
+	case bogus:
+	case prot_none:
+	case prot_read:
+		return true;
+		break;
+	default:
+		assert(false);
+		break;
+	}
+
+	switch (tz) {
+	case valid:
+	case nullptr:
+		break;
+	case bogus:
+	case prot_none:
+	case prot_read:
+		return true;
+		break;
+	default:
+		assert(false);
+		break;
+	}
+
+	switch (tcache) {
+	case valid:
+	case nullptr:
+	case bogus:
+	case prot_none:
+	case prot_read:
+		/* tcache should be ignored completely */
+		break;
+	default:
+		assert(false);
+		break;
+	}
+
+	return false;
+}
+
+static void getcpu_abi_cpu_node(struct ctx *ctx,
+				unsigned int *cpu,
+				enum getcpu_arg_type cpu_type,
+				unsigned int *node,
+				enum getcpu_arg_type node_type)
+{
+	enum getcpu_arg_type tc_type;
+
+	for (tc_type = 0; tc_type < getcpu_arg_type_max; tc_type++) {
+		struct signal_set signal_set;
+		struct child_params parms;
+		struct getcpu_args args;
+		int expected_errno;
+		int expected_ret;
+		char *desc;
+		void *tc;
+
+		tc = getcpu_arg_alloc(tc_type);
+
+		/* First, force system call */
+		args = (struct getcpu_args) {
+			.cpu = cpu,
+			.node = node,
+			.tcache = tc,
+			.force_syscall = true,
+		};
+
+		expected_ret = 0;
+		if (getcpu_args_should_fault(cpu_type, node_type, tc_type))
+			expected_ret = -1;
+
+		expected_errno = 0;
+		if (getcpu_args_should_fault(cpu_type, node_type, tc_type))
+			expected_errno = EFAULT;
+
+		/* Should never actually terminate by signal
+		 * for syscall.
+		 */
+		signal_set.mask = 0;
+
+		xasprintf(&desc, "SYS_getcpu(%s, %s, %s)",
+			  getcpu_arg_type_str[cpu_type],
+			  getcpu_arg_type_str[node_type],
+			  getcpu_arg_type_str[tc_type]);
+
+		parms = (struct child_params) {
+			.desc = desc,
+			.func = do_getcpu,
+			.arg = &args,
+			.expected_ret = expected_ret,
+			.expected_errno = expected_errno,
+			.signal_set = signal_set,
+		};
+
+		run_as_child(ctx, &parms);
+
+		xfree(desc);
+
+		/* Now do libc/vDSO */
+
+		args.force_syscall = false;
+
+		if (getcpu_args_should_fault(cpu_type, node_type, tc_type))
+			signal_set.mask |= SIGNO_TO_BIT(SIGSEGV);
+
+		xasprintf(&desc, "getcpu(%s, %s, %s)",
+			  getcpu_arg_type_str[cpu_type],
+			  getcpu_arg_type_str[node_type],
+			  getcpu_arg_type_str[tc_type]);
+
+		parms.desc = desc;
+		parms.signal_set = signal_set;
+
+		run_as_child(ctx, &parms);
+
+		xfree(desc);
+
+		getcpu_arg_release(tc, tc_type);
+	}
+}
+
+static void getcpu_abi_cpu(struct ctx *ctx,
+			   unsigned int *cpu,
+			   enum getcpu_arg_type cpu_type)
+{
+	enum getcpu_arg_type node_type;
+
+	for (node_type = 0; node_type < getcpu_arg_type_max; node_type++) {
+		unsigned int *node;
+
+		node = getcpu_arg_alloc(node_type);
+
+		getcpu_abi_cpu_node(ctx, cpu, cpu_type, node, node_type);
+
+		getcpu_arg_release(node, node_type);
+	}
+}
+
+static void getcpu_abi(struct ctx *ctx)
+{
+	enum getcpu_arg_type cpu_type;
+
+	for (cpu_type = 0; cpu_type < getcpu_arg_type_max; cpu_type++) {
+		unsigned int *cpu;
+
+		cpu = getcpu_arg_alloc(cpu_type);
+
+		getcpu_abi_cpu(ctx, cpu, cpu_type);
+
+		getcpu_arg_release(cpu, cpu_type);
+	}
+}
+
 static void getcpu_notes(struct ctx *ctx)
 {
 	if (getcpu == getcpu_syscall_wrapper)
@@ -211,6 +460,7 @@ static const struct test_suite getcpu_ts = {
 	.name = "getcpu",
 	.bench = getcpu_bench,
 	.verify = getcpu_verify,
+	.abi = getcpu_abi,
 	.notes = getcpu_notes,
 };
 
