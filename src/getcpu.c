@@ -38,22 +38,9 @@ static void getcpu_nofail(unsigned *cpu, unsigned *node, void *tcache)
 		error(EXIT_FAILURE, errno, "getcpu");
 }
 
-/* Set affinity to the current CPU */
-static void getcpu_setup(const struct ctx *ctx)
-{
-	unsigned int cpu;
-	cpu_set_t mask;
-
-	getcpu_syscall_nofail(&cpu, NULL, NULL);
-
-	CPU_ZERO(&mask);
-	CPU_SET(cpu, &mask);
-
-	if (sched_setaffinity(getpid(), sizeof(mask), &mask))
-		error(EXIT_FAILURE, errno, "sched_setaffinity");
-}
-
-/* Force the scheduler to migrate us off the current cpu */
+/* Force the scheduler to migrate us off the current cpu.  Return new
+ * affinity mask in cpus_allowed.
+ */
 static void migrate(const struct ctx *ctx, cpu_set_t *cpus_allowed)
 {
 	unsigned int cpu;
@@ -80,8 +67,6 @@ static void getcpu_bench(struct ctx *ctx, struct bench_results *res)
 	uint64_t calls;
 	unsigned int cpu;
 
-	getcpu_setup(ctx);
-
 	ctx_start_timer(ctx);
 
 	bench_interval_begin(&res->vdso_interval, calls);
@@ -107,8 +92,6 @@ static void getcpu_bench(struct ctx *ctx, struct bench_results *res)
 
 static void getcpu_verify(struct ctx *ctx)
 {
-	getcpu_setup(ctx);
-
 	ctx_start_timer(ctx);
 
 	while (!test_should_stop(ctx)) {
