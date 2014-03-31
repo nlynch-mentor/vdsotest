@@ -141,10 +141,17 @@ static void getcpu_verify(struct ctx *ctx)
 	}
 }
 
+static void getcpu_notes(struct ctx *ctx)
+{
+	if (getcpu == getcpu_syscall_wrapper)
+		printf("Note: vDSO version of getcpu not found\n");
+}
+
 static const struct test_suite getcpu_ts = {
 	.name = "getcpu",
 	.bench = getcpu_bench,
 	.verify = getcpu_verify,
+	.notes = getcpu_notes,
 };
 
 static const char *getcpu_vdso_names[] = {
