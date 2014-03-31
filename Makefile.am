@@ -27,4 +27,4 @@ vdsotest_SOURCES = \
 	src/gettimeofday.c \
 	src/util.c \
 	src/vdsotest.c
-vdsotest_LDADD = -lrt
+vdsotest_LDADD = -lrt -ldl

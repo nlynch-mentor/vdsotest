@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <dlfcn.h>
 #include <search.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -129,4 +130,23 @@ void free_page(void *page)
 	err = munmap(page, sysconf(_SC_PAGESIZE));
 	if (err)
 		abort();
+}
+
+void *get_vdso_sym(const char *name)
+{
+	void *handle;
+	void *sym;
+
+	handle = dlopen("linux-vdso.so.1", RTLD_NOW | RTLD_GLOBAL);
+
+	if (handle) {
+		(void)dlerror();
+		sym = dlsym(handle, name);
+		if (dlerror())
+			sym = NULL;
+	} else {
+		sym = NULL;
+	}
+
+	return sym;
 }

@@ -83,4 +83,6 @@ static inline bool signal_in_set(const struct signal_set *set, int sig)
 	return set->mask & SIGNO_TO_BIT(sig);
 }
 
+void *get_vdso_sym(const char *name);
+
 #endif
