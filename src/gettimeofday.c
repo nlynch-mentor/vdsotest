@@ -138,11 +138,87 @@ static void gettimeofday_bench(struct ctx *ctx, struct bench_results *res)
 	bench_interval_end(&res->sys_interval, calls);
 }
 
+struct gettimeofday_args {
+	struct timeval *tv;
+	struct timezone *tz;
+};
+
+struct timezone gtod_args_tz;
+struct timeval gtod_args_tv;
+
+static struct gettimeofday_args both_null;
+static struct gettimeofday_args tz_null = { .tv = &gtod_args_tv, };
+static struct gettimeofday_args tv_null = { .tz = &gtod_args_tz, };
+
+static void sys_gettimeofday_simple(void *arg, struct syscall_result *res)
+{
+	struct gettimeofday_args *args = arg;
+	int err;
+
+	syscall_prepare();
+	err = syscall(SYS_gettimeofday, args->tv, args->tz);
+	record_syscall_result(res, err, errno);
+}
+
+static void gettimeofday_simple(void *arg, struct syscall_result *res)
+{
+	struct gettimeofday_args *args = arg;
+	int err;
+
+	syscall_prepare();
+	err = gettimeofday(args->tv, args->tz);
+	record_syscall_result(res, err, errno);
+}
+
+static const struct child_params gettimeofday_abi_params[] = {
+	/* Kernel sanity checks */
+	{
+		.desc = "SYS_gettimeofday(NULL, NULL)",
+		.func = sys_gettimeofday_simple,
+		.arg = &both_null,
+	},
+	{
+		.desc = "SYS_gettimeofday(tv, NULL)",
+		.func = sys_gettimeofday_simple,
+		.arg = &tz_null,
+	},
+	{
+		.desc = "SYS_gettimeofday(NULL, tz)",
+		.func = sys_gettimeofday_simple,
+		.arg = &tv_null,
+	},
+
+	/* The below may be serviced by a vDSO, but not necessarily. */
+	{
+		.desc = "gettimeofday(NULL, NULL)",
+		.func = gettimeofday_simple,
+		.arg = &both_null,
+	},
+	{
+		.desc = "gettimeofday(tv, NULL)",
+		.func = gettimeofday_simple,
+		.arg = &tz_null,
+	},
+	{
+		.desc = "gettimeofday(NULL, tz)",
+		.func = gettimeofday_simple,
+		.arg = &tv_null,
+	},
+};
+
+static void gettimeofday_abi(struct ctx *ctx)
+{
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(gettimeofday_abi_params); i++)
+		run_as_child(ctx, &gettimeofday_abi_params[i]);
+}
 
 static const struct test_suite gettimeofday_ts = {
 	.name = "gettimeofday",
 	.bench = gettimeofday_bench,
 	.verify = gettimeofday_verify,
+	.abi = gettimeofday_abi,
 };
 
 static void __constructor gettimeofday_init(void)
