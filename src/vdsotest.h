@@ -21,6 +21,7 @@
 struct ctx {
 	volatile sig_atomic_t should_stop;
 	struct itimerspec duration;
+	timer_t timer;
 	cpu_set_t cpus_allowed;
 	unsigned long long max_fails;
 	unsigned long long fails;
@@ -100,6 +101,7 @@ struct test_suite {
 void register_testsuite(const struct test_suite *ts);
 
 void ctx_start_timer(struct ctx *ctx);
+void ctx_cleanup_timer(struct ctx *ctx);
 
 static inline bool test_should_stop(const struct ctx *ctx)
 {

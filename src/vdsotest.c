@@ -136,9 +136,12 @@ void ctx_start_timer(struct ctx *ctx)
 	if (timer_settime(timer, 0, &ctx->duration, NULL))
 		error(EXIT_FAILURE, errno, "timer_settime");
 
-	/* FIXME: we currently leak the timer - need to add
-	 * corresponding call to timer_delete.
-	 */
+	ctx->timer = timer;
+}
+
+void ctx_cleanup_timer(struct ctx *ctx)
+{
+	timer_delete(ctx->timer);
 }
 
 void run_as_child(struct ctx *ctx, const struct child_params *parms)

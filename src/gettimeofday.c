@@ -110,6 +110,8 @@ static void gettimeofday_verify(struct ctx *ctx)
 		}
 
 	}
+
+	ctx_cleanup_timer(ctx);
 }
 
 static void gettimeofday_bench(struct ctx *ctx, struct bench_results *res)
@@ -128,6 +130,8 @@ static void gettimeofday_bench(struct ctx *ctx, struct bench_results *res)
 
 	bench_interval_end(&res->vdso_interval, calls);
 
+	ctx_cleanup_timer(ctx);
+
 	ctx_start_timer(ctx);
 
 	bench_interval_begin(&res->sys_interval, calls);
@@ -138,6 +142,8 @@ static void gettimeofday_bench(struct ctx *ctx, struct bench_results *res)
 	}
 
 	bench_interval_end(&res->sys_interval, calls);
+
+	ctx_cleanup_timer(ctx);
 }
 
 struct gettimeofday_args {

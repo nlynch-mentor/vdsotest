@@ -82,6 +82,8 @@ static void getcpu_bench(struct ctx *ctx, struct bench_results *res)
 
 	bench_interval_end(&res->vdso_interval, calls);
 
+	ctx_cleanup_timer(ctx);
+
 	ctx_start_timer(ctx);
 
 	bench_interval_begin(&res->sys_interval, calls);
@@ -92,6 +94,8 @@ static void getcpu_bench(struct ctx *ctx, struct bench_results *res)
 	}
 
 	bench_interval_end(&res->sys_interval, calls);
+
+	ctx_cleanup_timer(ctx);
 }
 
 static void subtimer_set_duration(const struct ctx *ctx, struct timespec *ts)
@@ -200,6 +204,8 @@ static void getcpu_verify(struct ctx *ctx)
 
 		force_migrate(ctx, &cpus_allowed);
 	}
+
+	ctx_cleanup_timer(ctx);
 }
 
 struct getcpu_args {

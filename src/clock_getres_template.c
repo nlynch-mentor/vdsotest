@@ -78,6 +78,8 @@ static void clock_getres_verify(struct ctx *ctx)
 				    vres.tv_sec, vres.tv_nsec);
 		}
 	}
+
+	ctx_cleanup_timer(ctx);
 }
 
 static void clock_getres_bench(struct ctx *ctx, struct bench_results *res)
@@ -96,6 +98,8 @@ static void clock_getres_bench(struct ctx *ctx, struct bench_results *res)
 
 	bench_interval_end(&res->vdso_interval, calls);
 
+	ctx_cleanup_timer(ctx);
+
 	ctx_start_timer(ctx);
 
 	bench_interval_begin(&res->sys_interval, calls);
@@ -106,6 +110,8 @@ static void clock_getres_bench(struct ctx *ctx, struct bench_results *res)
 	}
 
 	bench_interval_end(&res->sys_interval, calls);
+
+	ctx_cleanup_timer(ctx);
 }
 
 static void sys_clock_getres_simple(void *arg, struct syscall_result *res)
