@@ -84,6 +84,11 @@ struct test_suite {
 	 * may get SIGSEGV where syscall may return EFAULT.
 	 */
 	void (*abi)(struct ctx *ctx);
+
+	/* Hook for printing any notes at the end of test run
+	 * e.g. vDSO not detected
+	 */
+	void (*notes)(struct ctx *ctx);
 };
 
 void register_testsuite(const struct test_suite *ts);

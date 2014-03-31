@@ -468,5 +468,8 @@ int main(int argc, char **argv)
 		ret = EXIT_FAILURE;
 	}
 
+	if (ts->notes)
+		ts->notes(&ctx);
+
 	return ret;
 }
