@@ -42,7 +42,7 @@ static bool timespecs_equal(const struct timespec *first,
 	return true;
 }
 
-/* Assume that reported resolution is constant, don't use timer */
+/* Assume that reported resolution is constant */
 static void clock_getres_verify(struct ctx *ctx)
 {
 	struct timespec sanity;
