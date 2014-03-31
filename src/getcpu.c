@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <dlfcn.h>
 #include <errno.h>
 #include <error.h>
 #include <sched.h>
@@ -12,15 +13,30 @@
 #include "compiler.h"
 #include "vdsotest.h"
 
-static void getcpu_syscall_nofail(unsigned *cpu, unsigned *node)
+static int (*getcpu)(unsigned *cpu, unsigned *node, void *tcache);
+
+static int getcpu_syscall_wrapper(unsigned *cpu, unsigned *node, void *tcache)
+{
+	return syscall(SYS_getcpu, cpu, node, tcache);
+}
+
+static void getcpu_syscall_nofail(unsigned *cpu, unsigned *node, void *tcache)
 {
 	int err;
 
-	err = syscall(SYS_getcpu, cpu, node);
+	err = getcpu_syscall_wrapper(cpu, node, tcache);
 	if (err)
 		error(EXIT_FAILURE, errno, "SYS_getcpu");
 }
 
+static void getcpu_nofail(unsigned *cpu, unsigned *node, void *tcache)
+{
+	int err;
+
+	err = getcpu(cpu, node, tcache);
+	if (err)
+		error(EXIT_FAILURE, errno, "getcpu");
+}
 
 /* Set affinity to the current CPU */
 static void getcpu_setup(const struct ctx *ctx)
@@ -28,7 +44,7 @@ static void getcpu_setup(const struct ctx *ctx)
 	unsigned int cpu;
 	cpu_set_t mask;
 
-	getcpu_syscall_nofail(&cpu, NULL);
+	getcpu_syscall_nofail(&cpu, NULL, NULL);
 
 	CPU_ZERO(&mask);
 	CPU_SET(cpu, &mask);
@@ -45,7 +61,7 @@ static void migrate(const struct ctx *ctx, cpu_set_t *cpus_allowed)
 	if (sched_getaffinity(getpid(), sizeof(cpu_set_t), cpus_allowed))
 		error(EXIT_FAILURE, errno, "sched_getaffinity");
 
-	getcpu_syscall_nofail(&cpu, NULL);
+	getcpu_syscall_nofail(&cpu, NULL, NULL);
 
 	assert(CPU_ISSET(cpu, cpus_allowed));
 
@@ -62,7 +78,7 @@ static void migrate(const struct ctx *ctx, cpu_set_t *cpus_allowed)
 static void getcpu_bench(struct ctx *ctx, struct bench_results *res)
 {
 	uint64_t calls;
-	int cpu;
+	unsigned int cpu;
 
 	getcpu_setup(ctx);
 
@@ -71,7 +87,7 @@ static void getcpu_bench(struct ctx *ctx, struct bench_results *res)
 	bench_interval_begin(&res->vdso_interval, calls);
 
 	while (!test_should_stop(ctx)) {
-		cpu = sched_getcpu();
+		getcpu(&cpu, NULL, NULL);
 		calls++;
 	}
 
@@ -82,7 +98,7 @@ static void getcpu_bench(struct ctx *ctx, struct bench_results *res)
 	bench_interval_begin(&res->sys_interval, calls);
 
 	while (!test_should_stop(ctx)) {
-		syscall(SYS_getcpu, &cpu, NULL);
+		getcpu_syscall_wrapper(&cpu, NULL, NULL);
 		calls++;
 	}
 
@@ -108,14 +124,14 @@ static void getcpu_verify(struct ctx *ctx)
 		for (i = 0; i < loops && !test_should_stop(ctx); i++) {
 			unsigned int cpu;
 
-			cpu = sched_getcpu();
+			getcpu_nofail(&cpu, NULL, NULL);
 
 			if (!CPU_ISSET(cpu, &cpus_allowed)) {
 				log_failure(ctx, "sched_getcpu returned "
 					    "unallowed cpu %d\n", cpu);
 			}
 
-			getcpu_syscall_nofail(&cpu, NULL);
+			getcpu_syscall_nofail(&cpu, NULL, NULL);
 
 			if (!CPU_ISSET(cpu, &cpus_allowed)) {
 				log_failure(ctx, "SYS_getcpu returned "
@@ -131,7 +147,23 @@ static const struct test_suite getcpu_ts = {
 	.verify = getcpu_verify,
 };
 
+static const char *getcpu_vdso_names[] = {
+	"__kernel_getcpu",
+	"__vdso_getcpu",
+};
+
 static void __constructor getcpu_init(void)
 {
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(getcpu_vdso_names); i++) {
+		getcpu = get_vdso_sym(getcpu_vdso_names[i]);
+		if (getcpu)
+			break;
+	}
+
+	if (!getcpu)
+		getcpu = getcpu_syscall_wrapper;
+
 	register_testsuite(&getcpu_ts);
 }
