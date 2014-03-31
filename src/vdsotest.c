@@ -21,11 +21,6 @@
 #include "util.h"
 #include "vdsotest.h"
 
-/* Valgrind uses SIGRTMAX.  Just try to use something in the middle of
- * the range.
- */
-#define TIMER_SIGNO (SIGRTMIN + ((SIGRTMAX - SIGRTMIN) / 2))
-
 const char *argp_program_version = PACKAGE_VERSION;
 const char *argp_program_bug_address = PACKAGE_BUGREPORT;
 
@@ -439,8 +434,6 @@ int main(int argc, char **argv)
 	int ret;
 
 	ret = EXIT_SUCCESS;
-
-	srandom(getpid());
 
 	ctx_init_defaults(&ctx);
 

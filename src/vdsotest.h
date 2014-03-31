@@ -12,6 +12,12 @@
 #include "compiler.h"
 #include "util.h"
 
+/* Valgrind uses SIGRTMAX.  Just try to use something in the middle of
+ * the range.
+ */
+#define TIMER_SIGNO (SIGRTMIN + ((SIGRTMAX - SIGRTMIN) / 2))
+#define SUBTIMER_SIGNO (TIMER_SIGNO + 1)
+
 struct ctx {
 	volatile sig_atomic_t should_stop;
 	struct itimerspec duration;
