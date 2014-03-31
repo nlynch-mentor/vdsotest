@@ -210,12 +210,12 @@ void run_as_child(struct ctx *ctx, const struct child_params *parms)
 		log_failure(ctx, "%s: exited with status %d, "
 			    "expected %d\n", parms->desc,
 			    cstatus.wexitstatus, EXIT_SUCCESS);
-	}
-
-	if (cstatus.wsignaled &&
+	} else if (cstatus.wsignaled &&
 	    !signal_in_set(&parms->signal_set, cstatus.wtermsig)) {
 		log_failure(ctx, "%s: terminated by unexpected signal %d\n",
 			  parms->desc, cstatus.wtermsig);
+	} else {
+		verbose(ctx, "%-60s OK\n", parms->desc);
 	}
 }
 
