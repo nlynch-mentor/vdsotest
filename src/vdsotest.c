@@ -324,14 +324,14 @@ static const struct argp_option options[] = {
 	{
 		.name = "duration",
 		.key = 'd',
-		.doc = "Duration of test run in seconds",
+		.doc = "Duration of test run in seconds (default 1)",
 		.arg = "SEC",
 	},
 	{
 		.name = "maxfails",
 		.key = 'f',
 		.doc = "Maximum number of failures before terminating "
-		       "test run.",
+		       "test run (default 10)",
 		.arg = "NUM",
 	},
 	{
