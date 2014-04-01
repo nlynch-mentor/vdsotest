@@ -342,6 +342,18 @@ static const struct argp_option options[] = {
 	{ 0 },
 };
 
+static void list_apis(struct ctx *ctx)
+{
+	printf("%s", api_list);
+	exit(EXIT_SUCCESS);
+}
+
+static void list_test_types(struct ctx *ctx)
+{
+	printf("%s", test_type_list);
+	exit(EXIT_SUCCESS);
+}
+
 static error_t parse(int key, char *arg, struct argp_state *state)
 {
 	struct ctx *ctx;
@@ -364,6 +376,10 @@ static error_t parse(int key, char *arg, struct argp_state *state)
 	case ARGP_KEY_ARG:
 		switch (state->arg_num) {
 		case 0:
+			if (!strcmp(arg, "list-apis"))
+				list_apis(ctx);
+			if (!strcmp(arg, "list-test-types"))
+				list_test_types(ctx);
 			ctx->api = arg;
 			break;
 		case 1:
@@ -407,7 +423,9 @@ static char *vdsotest_help_filter(int key, const char *text, void *input)
 	return str;
 }
 
-static const char vdsotest_args_doc[] = "API TEST-TYPE";
+static const char vdsotest_args_doc[] = "API TEST-TYPE\n"
+	"list-apis\n"
+	"list-test-types";
 
 static const struct argp argparser = {
 	.options = options,
