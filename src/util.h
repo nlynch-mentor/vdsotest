@@ -8,7 +8,7 @@
 
 #include "compiler.h"
 
-#define NSEC_PER_SEC 1000000000
+#define NSEC_PER_SEC 1000000000L
 
 #define ADDR_SPACE_END UINTPTR_MAX
 
@@ -31,7 +31,7 @@ static inline uint64_t timespec_to_nsec(const struct timespec *ts)
 {
 	uint64_t res;
 
-	res = NSEC_PER_SEC * ts->tv_sec;
+	res = NSEC_PER_SEC * (unsigned long long)ts->tv_sec;
 	res += ts->tv_nsec;
 
 	return res;
