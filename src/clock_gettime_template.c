@@ -12,8 +12,6 @@
 #include "compiler.h"
 #include "vdsotest.h"
 
-#define NSEC_PER_SEC 1000000000
-
 static void clock_gettime_syscall_nofail(struct timespec *ts)
 {
 	int err;
