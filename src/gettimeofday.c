@@ -15,20 +15,28 @@
 
 #define USEC_PER_SEC 1000000
 
-static void gettimeofday_syscall_nofail(struct timeval *tv)
+static int gettimeofday_syscall_wrapper(struct timeval *tv, struct timezone *tz)
+{
+	return syscall(SYS_gettimeofday, tv, tz);
+}
+
+static int (*gettimeofday_fn)(struct timeval *tv, struct timezone *tz) =
+	gettimeofday_syscall_wrapper;
+
+static void gettimeofday_syscall_nofail(struct timeval *tv, struct timezone *tz)
 {
 	int err;
 
-	err = syscall(SYS_gettimeofday, tv, NULL);
+	err = gettimeofday_syscall_wrapper(tv, tz);
 	if (err)
 		error(EXIT_FAILURE, errno, "SYS_gettimeofday");
 }
 
-static void gettimeofday_libc_nofail(struct timeval *tv)
+static void gettimeofday_nofail(struct timeval *tv, struct timezone *tz)
 {
 	int err;
 
-	err = gettimeofday(tv, NULL);
+	err = gettimeofday_fn(tv, tz);
 	if (err)
 		error(EXIT_FAILURE, errno, "gettimeofday");
 }
@@ -60,7 +68,7 @@ static void gettimeofday_verify(struct ctx *ctx)
 {
 	struct timeval now;
 
-	gettimeofday_syscall_nofail(&now);
+	gettimeofday_syscall_nofail(&now, NULL);
 
 	ctx_start_timer(ctx);
 
@@ -69,7 +77,7 @@ static void gettimeofday_verify(struct ctx *ctx)
 
 		prev = now;
 
-		gettimeofday_libc_nofail(&now);
+		gettimeofday_nofail(&now, NULL);
 
 		if (!timeval_normalized(&now)) {
 			log_failure(ctx, "timestamp obtained from libc/vDSO "
@@ -90,7 +98,7 @@ static void gettimeofday_verify(struct ctx *ctx)
 
 		prev = now;
 
-		gettimeofday_syscall_nofail(&now);
+		gettimeofday_syscall_nofail(&now, NULL);
 
 		if (!timeval_normalized(&now)) {
 			log_failure(ctx, "timestamp obtained from kernel "
@@ -124,7 +132,7 @@ static void gettimeofday_bench(struct ctx *ctx, struct bench_results *res)
 	bench_interval_begin(&res->vdso_interval, calls);
 
 	while (!test_should_stop(ctx)) {
-		gettimeofday(&tv, NULL);
+		gettimeofday_fn(&tv, NULL);
 		calls++;
 	}
 
@@ -137,7 +145,7 @@ static void gettimeofday_bench(struct ctx *ctx, struct bench_results *res)
 	bench_interval_begin(&res->sys_interval, calls);
 
 	while (!test_should_stop(ctx)) {
-		syscall(SYS_gettimeofday, &tv, NULL);
+		gettimeofday_syscall_wrapper(&tv, NULL);
 		calls++;
 	}
 
@@ -176,9 +184,9 @@ static void do_gettimeofday(void *arg, struct syscall_result *res)
 
 	syscall_prepare();
 	if (args->force_syscall)
-		err = syscall(SYS_gettimeofday, args->tv, args->tz);
+		err = gettimeofday_syscall_wrapper(args->tv, args->tz);
 	else
-		err = gettimeofday(args->tv, args->tz);
+		err = gettimeofday_fn(args->tv, args->tz);
 	record_syscall_result(res, err, errno);
 }
 
@@ -345,11 +353,31 @@ static void gettimeofday_abi(struct ctx *ctx)
 	}
 }
 
+static void gettimeofday_notes(struct ctx *ctx)
+{
+	if (gettimeofday_fn == gettimeofday_syscall_wrapper)
+		printf("Note: vDSO version of gettimeofday not found\n");
+}
+
+static const char *gettimeofday_vdso_names[] = {
+	"__kernel_gettimeofday",
+	"__vdso_gettimeofday",
+	NULL,
+};
+
+static void gettimeofday_bind(void *sym)
+{
+	gettimeofday_fn = sym;
+}
+
 static const struct test_suite gettimeofday_ts = {
 	.name = "gettimeofday",
 	.bench = gettimeofday_bench,
 	.verify = gettimeofday_verify,
 	.abi = gettimeofday_abi,
+	.notes = gettimeofday_notes,
+	.vdso_names = gettimeofday_vdso_names,
+	.bind = gettimeofday_bind,
 };
 
 static void __constructor gettimeofday_init(void)
