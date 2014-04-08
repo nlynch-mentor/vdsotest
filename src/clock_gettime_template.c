@@ -12,20 +12,28 @@
 #include "compiler.h"
 #include "vdsotest.h"
 
-static void clock_gettime_syscall_nofail(struct timespec *ts)
+static int clock_gettime_syscall_wrapper(clockid_t id, struct timespec *ts)
+{
+	return syscall(SYS_clock_gettime, id, ts);
+}
+
+static int (*clock_gettime_fn)(clockid_t id, struct timespec *ts) =
+	clock_gettime_syscall_wrapper;
+
+static void clock_gettime_syscall_nofail(clockid_t id, struct timespec *ts)
 {
 	int err;
 
-	err = syscall(SYS_clock_gettime, CLOCK_ID, ts);
+	err = clock_gettime_syscall_wrapper(id, ts);
 	if (err)
 		error(EXIT_FAILURE, errno, "SYS_clock_gettime");
 }
 
-static void clock_gettime_libc_nofail(struct timespec *ts)
+static void clock_gettime_nofail(clockid_t id, struct timespec *ts)
 {
 	int err;
 
-	err = clock_gettime(CLOCK_ID, ts);
+	err = clock_gettime_fn(id, ts);
 	if (err)
 		error(EXIT_FAILURE, errno, "clock_gettime");
 }
@@ -57,7 +65,7 @@ static void clock_gettime_verify(struct ctx *ctx)
 {
 	struct timespec now;
 
-	clock_gettime_syscall_nofail(&now);
+	clock_gettime_syscall_nofail(CLOCK_ID, &now);
 
 	ctx_start_timer(ctx);
 
@@ -66,7 +74,7 @@ static void clock_gettime_verify(struct ctx *ctx)
 
 		prev = now;
 
-		clock_gettime_libc_nofail(&now);
+		clock_gettime_nofail(CLOCK_ID, &now);
 
 		if (!timespec_normalized(&now)) {
 			log_failure(ctx, "timestamp obtained from libc/vDSO "
@@ -87,7 +95,7 @@ static void clock_gettime_verify(struct ctx *ctx)
 
 		prev = now;
 
-		clock_gettime_syscall_nofail(&now);
+		clock_gettime_syscall_nofail(CLOCK_ID, &now);
 
 		if (!timespec_normalized(&now)) {
 			log_failure(ctx, "timestamp obtained from kernel "
@@ -121,7 +129,7 @@ static void clock_gettime_bench(struct ctx *ctx, struct bench_results *res)
 	bench_interval_begin(&res->vdso_interval, calls);
 
 	while (!test_should_stop(ctx)) {
-		clock_gettime(CLOCK_ID, &ts);
+		clock_gettime_fn(CLOCK_ID, &ts);
 		calls++;
 	}
 
@@ -134,7 +142,7 @@ static void clock_gettime_bench(struct ctx *ctx, struct bench_results *res)
 	bench_interval_begin(&res->sys_interval, calls);
 
 	while (!test_should_stop(ctx)) {
-		syscall(SYS_clock_gettime, CLOCK_ID, &ts);
+		clock_gettime_syscall_wrapper(CLOCK_ID, &ts);
 		calls++;
 	}
 
@@ -148,7 +156,7 @@ static void sys_clock_gettime_simple(void *arg, struct syscall_result *res)
 	int err;
 
 	syscall_prepare();
-	err = syscall(SYS_clock_gettime, CLOCK_ID, arg);
+	err = clock_gettime_syscall_wrapper(CLOCK_ID, arg);
 	record_syscall_result(res, err, errno);
 }
 
@@ -159,7 +167,7 @@ static void sys_clock_gettime_prot(void *arg, struct syscall_result *res)
 
 	buf = alloc_page((int)(unsigned long)arg);
 	syscall_prepare();
-	err = syscall(SYS_clock_gettime, CLOCK_ID, buf);
+	err = clock_gettime_syscall_wrapper(CLOCK_ID, buf);
 	record_syscall_result(res, err, errno);
 	free_page(buf);
 }
@@ -169,7 +177,7 @@ static void clock_gettime_simple(void *arg, struct syscall_result *res)
 	int err;
 
 	syscall_prepare();
-	err = clock_gettime(CLOCK_ID, arg);
+	err = clock_gettime_fn(CLOCK_ID, arg);
 	record_syscall_result(res, err, errno);
 }
 
@@ -180,7 +188,7 @@ static void clock_gettime_prot(void *arg, struct syscall_result *res)
 
 	buf = alloc_page((int)(unsigned long)arg);
 	syscall_prepare();
-	err = clock_gettime(CLOCK_ID, buf);
+	err = clock_gettime_fn(CLOCK_ID, buf);
 	record_syscall_result(res, err, errno);
 	free_page(buf);
 }
@@ -191,8 +199,8 @@ static void clock_gettime_bogus_id(void *arg, struct syscall_result *res)
 	int err;
 
 	syscall_prepare();
-	err = arg ? syscall(SYS_clock_gettime, (clockid_t)-1, &ts) :
-		clock_gettime((clockid_t)-1, &ts);
+	err = arg ? clock_gettime_syscall_wrapper((clockid_t)-1, &ts) :
+		clock_gettime_fn((clockid_t)-1, &ts);
 
 	record_syscall_result(res, err, errno);
 }
@@ -202,8 +210,8 @@ static void clock_gettime_bogus_id_null(void *arg, struct syscall_result *res)
 	int err;
 
 	syscall_prepare();
-	err = arg ? syscall(SYS_clock_gettime, (clockid_t)-1, NULL) :
-		clock_gettime((clockid_t)-1, NULL);
+	err = arg ? clock_gettime_syscall_wrapper((clockid_t)-1, NULL) :
+		clock_gettime_fn((clockid_t)-1, NULL);
 
 	record_syscall_result(res, err, errno);
 }
@@ -329,12 +337,31 @@ static void clock_gettime_abi(struct ctx *ctx)
 		run_as_child(ctx, &clock_gettime_abi_params[i]);
 }
 
+static void clock_gettime_notes(struct ctx *ctx)
+{
+	if (clock_gettime_fn == clock_gettime_syscall_wrapper)
+		printf("Note: vDSO version of clock_gettime not found\n");
+}
+
+static const char *clock_gettime_vdso_names[] = {
+	"__kernel_clock_gettime",
+	"__vdso_clock_gettime",
+	NULL,
+};
+
+static void clock_gettime_bind(void *sym)
+{
+	clock_gettime_fn = sym;
+}
 
 static const struct test_suite clock_gettime_ts = {
 	.name = "clock-gettime-" TS_SFX,
 	.bench = clock_gettime_bench,
 	.verify = clock_gettime_verify,
 	.abi = clock_gettime_abi,
+	.notes = clock_gettime_notes,
+	.vdso_names = clock_gettime_vdso_names,
+	.bind = clock_gettime_bind,
 };
 
 static void __constructor clock_gettime_init(void)
