@@ -12,20 +12,28 @@
 #include "compiler.h"
 #include "vdsotest.h"
 
-static void clock_getres_syscall_nofail(struct timespec *ts)
+static int clock_getres_syscall_wrapper(clockid_t id, struct timespec *ts)
+{
+	return syscall(SYS_clock_getres, id, ts);
+}
+
+static int (*clock_getres_fn)(clockid_t id, struct timespec *ts) =
+	clock_getres_syscall_wrapper;
+
+static void clock_getres_syscall_nofail(clockid_t id, struct timespec *ts)
 {
 	int err;
 
-	err = syscall(SYS_clock_getres, CLOCK_ID, ts);
+	err = clock_getres_syscall_wrapper(id, ts);
 	if (err)
 		error(EXIT_FAILURE, errno, "SYS_clock_getres");
 }
 
-static void clock_getres_libc_nofail(struct timespec *ts)
+static void clock_getres_nofail(clockid_t id, struct timespec *ts)
 {
 	int err;
 
-	err = clock_getres(CLOCK_ID, ts);
+	err = clock_getres_fn(id, ts);
 	if (err)
 		error(EXIT_FAILURE, errno, "clock_getres");
 }
@@ -45,7 +53,7 @@ static void clock_getres_verify(struct ctx *ctx)
 {
 	struct timespec sanity;
 
-	clock_getres_syscall_nofail(&sanity);
+	clock_getres_syscall_nofail(CLOCK_ID, &sanity);
 
 	ctx_start_timer(ctx);
 
@@ -53,8 +61,8 @@ static void clock_getres_verify(struct ctx *ctx)
 		struct timespec kres;
 		struct timespec vres;
 
-		clock_getres_syscall_nofail(&kres);
-		clock_getres_libc_nofail(&vres);
+		clock_getres_syscall_nofail(CLOCK_ID, &kres);
+		clock_getres_nofail(CLOCK_ID, &vres);
 
 		/* Check assumptions */
 		if (!timespecs_equal(&kres, &sanity)) {
@@ -90,7 +98,7 @@ static void clock_getres_bench(struct ctx *ctx, struct bench_results *res)
 	bench_interval_begin(&res->vdso_interval, calls);
 
 	while (!test_should_stop(ctx)) {
-		clock_getres(CLOCK_ID, &ts);
+		clock_getres_fn(CLOCK_ID, &ts);
 		calls++;
 	}
 
@@ -103,7 +111,7 @@ static void clock_getres_bench(struct ctx *ctx, struct bench_results *res)
 	bench_interval_begin(&res->sys_interval, calls);
 
 	while (!test_should_stop(ctx)) {
-		syscall(SYS_clock_getres, CLOCK_ID, &ts);
+		clock_getres_syscall_wrapper(CLOCK_ID, &ts);
 		calls++;
 	}
 
@@ -117,7 +125,7 @@ static void sys_clock_getres_simple(void *arg, struct syscall_result *res)
 	int err;
 
 	syscall_prepare();
-	err = syscall(SYS_clock_getres, CLOCK_ID, arg);
+	err = clock_getres_syscall_wrapper(CLOCK_ID, arg);
 	record_syscall_result(res, err, errno);
 }
 
@@ -128,7 +136,7 @@ static void sys_clock_getres_prot(void *arg, struct syscall_result *res)
 
 	buf = alloc_page((int)(unsigned long)arg);
 	syscall_prepare();
-	err = syscall(SYS_clock_getres, CLOCK_ID, buf);
+	err = clock_getres_syscall_wrapper(CLOCK_ID, buf);
 	record_syscall_result(res, err, errno);
 	free_page(buf);
 }
@@ -138,7 +146,7 @@ static void clock_getres_simple(void *arg, struct syscall_result *res)
 	int err;
 
 	syscall_prepare();
-	err = clock_getres(CLOCK_ID, arg);
+	err = clock_getres_fn(CLOCK_ID, arg);
 	record_syscall_result(res, err, errno);
 }
 
@@ -149,7 +157,7 @@ static void clock_getres_prot(void *arg, struct syscall_result *res)
 
 	buf = alloc_page((int)(unsigned long)arg);
 	syscall_prepare();
-	err = clock_getres(CLOCK_ID, buf);
+	err = clock_getres_fn(CLOCK_ID, buf);
 	record_syscall_result(res, err, errno);
 	free_page(buf);
 }
@@ -160,8 +168,8 @@ static void clock_getres_bogus_id(void *arg, struct syscall_result *res)
 	int err;
 
 	syscall_prepare();
-	err = arg ? syscall(SYS_clock_getres, (clockid_t)-1, &ts) :
-		clock_getres((clockid_t)-1, &ts);
+	err = arg ? clock_getres_syscall_wrapper((clockid_t)-1, &ts) :
+		clock_getres_fn((clockid_t)-1, &ts);
 
 	record_syscall_result(res, err, errno);
 }
@@ -171,8 +179,8 @@ static void clock_getres_bogus_id_null(void *arg, struct syscall_result *res)
 	int err;
 
 	syscall_prepare();
-	err = arg ? syscall(SYS_clock_getres, (clockid_t)-1, NULL) :
-		clock_getres((clockid_t)-1, NULL);
+	err = arg ? clock_getres_syscall_wrapper((clockid_t)-1, NULL) :
+		clock_getres_fn((clockid_t)-1, NULL);
 
 	record_syscall_result(res, err, errno);
 }
@@ -299,11 +307,31 @@ static void clock_getres_abi(struct ctx *ctx)
 		run_as_child(ctx, &clock_getres_abi_params[i]);
 }
 
+static void clock_getres_notes(struct ctx *ctx)
+{
+	if (clock_getres_fn == clock_getres_syscall_wrapper)
+		printf("Note: vDSO version of clock_getres not found\n");
+}
+
+static const char *clock_getres_vdso_names[] = {
+	"__kernel_clock_getres",
+	"__vdso_clock_getres",
+	NULL,
+};
+
+static void clock_getres_bind(void *sym)
+{
+	clock_getres_fn = sym;
+}
+
 static const struct test_suite clock_getres_ts = {
 	.name = "clock-getres-" TS_SFX,
 	.bench = clock_getres_bench,
 	.verify = clock_getres_verify,
 	.abi = clock_getres_abi,
+	.notes = clock_getres_notes,
+	.vdso_names = clock_getres_vdso_names,
+	.bind = clock_getres_bind,
 };
 
 static void __constructor clock_getres_init(void)
