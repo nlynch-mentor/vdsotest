@@ -78,12 +78,8 @@ struct test_suite {
 	void (*bench)(struct ctx *ctx, struct bench_results *res);
 
 	/* Check for inconsistencies between vDSO and syscall
-	 * implemenations, usually by rapidly switching between the
+	 * implementations, usually by rapidly switching between the
 	 * two modes and comparing results obtained.
-	 *
-	 * FIXME: distinguish between self-consistency (vDSO-only) and
-	 * vDSO vs kernel consistency.  Or assume that doing vDSO vs
-	 * kernel will catch everything.
 	 */
 	void (*verify)(struct ctx *ctx);
 
@@ -93,7 +89,7 @@ struct test_suite {
 	void (*abi)(struct ctx *ctx);
 
 	/* Hook for printing any notes at the end of test run
-	 * e.g. vDSO not detected
+	 * e.g. vDSO not detected.
 	 */
 	void (*notes)(struct ctx *ctx);
 };
