@@ -92,6 +92,16 @@ struct test_suite {
 	 * e.g. vDSO not detected.
 	 */
 	void (*notes)(struct ctx *ctx);
+
+	/* Array of vdso symbol names to attempt binding, null
+	 * terminated.
+	 */
+	const char **vdso_names;
+
+	/* Callback used during register_testsuite: @sym is the first
+	 * symbol from ->vdso_names successfully resolved.
+	 */
+	void (*bind)(void *sym);
 };
 
 void register_testsuite(const struct test_suite *ts);

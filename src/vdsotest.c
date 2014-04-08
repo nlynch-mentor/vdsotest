@@ -443,6 +443,24 @@ void register_testsuite(const struct test_suite *ts)
 	xfree(api_list);
 	api_list = new_api_list;
 
+	if (ts->vdso_names) {
+		unsigned int i;
+
+		assert(ts->bind != NULL);
+
+		for (i = 0; ts->vdso_names[i] != NULL; i++) {
+			const char *name = ts->vdso_names[i];
+			void *func;
+
+			func = get_vdso_sym(name);
+			if (!func)
+				continue;
+
+			ts->bind(func);
+			break;
+		}
+	}
+
 	hashtable_add(&test_suite_htab, ts->name, ts);
 }
 
