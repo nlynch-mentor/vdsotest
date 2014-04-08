@@ -14,12 +14,13 @@
 #include "compiler.h"
 #include "vdsotest.h"
 
-static int (*getcpu)(unsigned *cpu, unsigned *node, void *tcache);
-
 static int getcpu_syscall_wrapper(unsigned *cpu, unsigned *node, void *tcache)
 {
 	return syscall(SYS_getcpu, cpu, node, tcache);
 }
+
+static int (*getcpu)(unsigned *cpu, unsigned *node, void *tcache) =
+	getcpu_syscall_wrapper;
 
 static void getcpu_syscall_nofail(unsigned *cpu, unsigned *node, void *tcache)
 {
@@ -462,31 +463,28 @@ static void getcpu_notes(struct ctx *ctx)
 		printf("Note: vDSO version of getcpu not found\n");
 }
 
+static const char *getcpu_vdso_names[] = {
+	"__kernel_getcpu",
+	"__vdso_getcpu",
+	NULL,
+};
+
+static void getcpu_bind(void *sym)
+{
+	getcpu = sym;
+}
+
 static const struct test_suite getcpu_ts = {
 	.name = "getcpu",
 	.bench = getcpu_bench,
 	.verify = getcpu_verify,
 	.abi = getcpu_abi,
 	.notes = getcpu_notes,
-};
-
-static const char *getcpu_vdso_names[] = {
-	"__kernel_getcpu",
-	"__vdso_getcpu",
+	.vdso_names = getcpu_vdso_names,
+	.bind = getcpu_bind,
 };
 
 static void __constructor getcpu_init(void)
 {
-	unsigned int i;
-
-	for (i = 0; i < ARRAY_SIZE(getcpu_vdso_names); i++) {
-		getcpu = get_vdso_sym(getcpu_vdso_names[i]);
-		if (getcpu)
-			break;
-	}
-
-	if (!getcpu)
-		getcpu = getcpu_syscall_wrapper;
-
 	register_testsuite(&getcpu_ts);
 }
