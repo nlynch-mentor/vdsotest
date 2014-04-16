@@ -138,6 +138,8 @@ void *get_vdso_sym(const char *name)
 	void *sym;
 
 	handle = dlopen("linux-vdso.so.1", RTLD_NOW | RTLD_GLOBAL);
+	if (!handle)
+		handle = dlopen("linux-gate.so.1", RTLD_NOW | RTLD_GLOBAL);
 
 	if (handle) {
 		(void)dlerror();
