@@ -1,0 +1,13 @@
+#!/bin/sh
+
+: ${vdsotest:=@vdsotest@}
+
+opts="$@"
+
+for api in $($vdsotest list-apis)
+do
+    for testtype in $($vdsotest list-test-types)
+    do
+        $vdsotest $opts $api $testtype
+    done
+done

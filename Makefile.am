@@ -33,4 +33,17 @@ vdsotest_SOURCES = \
 
 vdsotest_LDADD = -lrt -ldl
 
-EXTRA_DIST = src/clock_getres_template.c src/clock_gettime_template.c
+bin_SCRIPTS = vdsotest-all
+
+CLEANFILES += $(bin_SCRIPTS)
+
+do_subst = sed -e 's,[@]vdsotest[@],$(bindir)/vdsotest,g'
+
+vdsotest-all: src/vdsotest-all.in Makefile
+	$(do_subst) < $(srcdir)/src/vdsotest-all.in > vdsotest-all
+	chmod +x vdsotest-all
+
+EXTRA_DIST += \
+	src/clock_getres_template.c \
+	src/clock_gettime_template.c \
+	src/vdsotest-all.in
