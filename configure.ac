@@ -1,7 +1,7 @@
 AC_PREREQ(2.60)
 AC_INIT([vdsotest],
         [0.1],
-        [<ntl@pobox.com>],
+        [<nathan_lynch@mentor.com>],
         [vdsotest])
 AC_CONFIG_SRCDIR([src/util.h])
 AC_CONFIG_AUX_DIR([build-aux])
