@@ -1,7 +1,8 @@
 vdsotest
 ========
 
-vdsotest is a utility for testing and benchmarking a Linux VDSO.
+vdsotest is a utility for testing and benchmarking a Linux VDSO.  C
+library support for the VDSO is not necessary to use vdsotest.
 
 Building
 --------
