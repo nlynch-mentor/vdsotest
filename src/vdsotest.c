@@ -237,19 +237,6 @@ void run_as_child(struct ctx *ctx, const struct child_params *parms)
 	}
 }
 
-
-/* Bench runs are really two tests: see how many vDSO calls we can
- * make in a given period, then do the same for the syscall.  The
- * second run resets the timer.  Halve the duration so that the
- * overall execution time matches what the user specified.
- */
-static void split_duration(struct ctx *ctx)
-{
-	struct timespec *ts = &ctx->duration.it_value;
-
-	*ts = nsec_to_timespec(timespec_to_nsec(ts) / 2);
-}
-
 enum testfunc_result {
 	TF_OK,     /* Test completed without failure */
 	TF_FAIL,   /* One or more failures/inconsistencies encountered */
@@ -262,8 +249,6 @@ testsuite_run_bench(struct ctx *ctx, const struct test_suite *ts)
 	struct bench_results bres;
 	if (!ts->bench)
 		return TF_NOIMPL;
-
-	split_duration(ctx);
 
 	bres = (struct bench_results) { };
 
