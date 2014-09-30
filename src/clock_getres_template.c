@@ -109,33 +109,12 @@ static void clock_getres_verify(struct ctx *ctx)
 static void clock_getres_bench(struct ctx *ctx, struct bench_results *res)
 {
 	struct timespec ts;
-	uint64_t calls;
 
-	ctx_start_timer(ctx);
+	BENCH(ctx, clock_getres_fn(CLOCK_ID, &ts),
+	      &res->vdso_interval);
 
-	bench_interval_begin(&res->vdso_interval, calls);
-
-	while (!test_should_stop(ctx)) {
-		clock_getres_fn(CLOCK_ID, &ts);
-		calls++;
-	}
-
-	bench_interval_end(&res->vdso_interval, calls);
-
-	ctx_cleanup_timer(ctx);
-
-	ctx_start_timer(ctx);
-
-	bench_interval_begin(&res->sys_interval, calls);
-
-	while (!test_should_stop(ctx)) {
-		clock_getres_syscall_wrapper(CLOCK_ID, &ts);
-		calls++;
-	}
-
-	bench_interval_end(&res->sys_interval, calls);
-
-	ctx_cleanup_timer(ctx);
+	BENCH(ctx, clock_getres_syscall_wrapper(CLOCK_ID, &ts),
+	      &res->sys_interval);
 }
 
 static void sys_clock_getres_simple(void *arg, struct syscall_result *res)

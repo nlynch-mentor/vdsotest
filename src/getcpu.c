@@ -87,34 +87,13 @@ static void force_migrate(const struct ctx *ctx, cpu_set_t *cpus_allowed)
 
 static void getcpu_bench(struct ctx *ctx, struct bench_results *res)
 {
-	uint64_t calls;
 	unsigned int cpu;
 
-	ctx_start_timer(ctx);
+	BENCH(ctx, getcpu(&cpu, NULL, NULL),
+	      &res->vdso_interval);
 
-	bench_interval_begin(&res->vdso_interval, calls);
-
-	while (!test_should_stop(ctx)) {
-		getcpu(&cpu, NULL, NULL);
-		calls++;
-	}
-
-	bench_interval_end(&res->vdso_interval, calls);
-
-	ctx_cleanup_timer(ctx);
-
-	ctx_start_timer(ctx);
-
-	bench_interval_begin(&res->sys_interval, calls);
-
-	while (!test_should_stop(ctx)) {
-		getcpu_syscall_wrapper(&cpu, NULL, NULL);
-		calls++;
-	}
-
-	bench_interval_end(&res->sys_interval, calls);
-
-	ctx_cleanup_timer(ctx);
+	BENCH(ctx, getcpu_syscall_wrapper(&cpu, NULL, NULL),
+	      &res->sys_interval);
 }
 
 static void subtimer_set_duration(const struct ctx *ctx, struct timespec *ts)
