@@ -58,6 +58,7 @@ struct bench_interval {
 };
 
 struct bench_results {
+	struct bench_interval libc_interval;
 	struct bench_interval vdso_interval;
 	struct bench_interval sys_interval;
 };
