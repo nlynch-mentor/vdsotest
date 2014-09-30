@@ -394,7 +394,7 @@ static void getcpu_abi_cpu_node(struct ctx *ctx,
 		 */
 		signal_set.mask = 0;
 
-		xasprintf(&desc, "SYS_getcpu(%s, %s, %s)",
+		xasprintf(&desc, "getcpu(%s, %s, %s) (syscall)",
 			  getcpu_arg_type_str[cpu_type],
 			  getcpu_arg_type_str[node_type],
 			  getcpu_arg_type_str[tc_type]);
@@ -422,7 +422,7 @@ static void getcpu_abi_cpu_node(struct ctx *ctx,
 		if (getcpu_args_should_fault(cpu_type, node_type, tc_type))
 			signal_set.mask |= SIGNO_TO_BIT(SIGSEGV);
 
-		xasprintf(&desc, "getcpu(%s, %s, %s)",
+		xasprintf(&desc, "getcpu(%s, %s, %s) (VDSO)",
 			  getcpu_arg_type_str[cpu_type],
 			  getcpu_arg_type_str[node_type],
 			  getcpu_arg_type_str[tc_type]);
