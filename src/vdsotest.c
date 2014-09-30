@@ -237,19 +237,6 @@ void run_as_child(struct ctx *ctx, const struct child_params *parms)
 	}
 }
 
-
-/* Bench runs are really two tests: see how many vDSO calls we can
- * make in a given period, then do the same for the syscall.  The
- * second run resets the timer.  Halve the duration so that the
- * overall execution time matches what the user specified.
- */
-static void split_duration(struct ctx *ctx)
-{
-	struct timespec *ts = &ctx->duration.it_value;
-
-	*ts = nsec_to_timespec(timespec_to_nsec(ts) / 2);
-}
-
 enum testfunc_result {
 	TF_OK,     /* Test completed without failure */
 	TF_FAIL,   /* One or more failures/inconsistencies encountered */
@@ -263,8 +250,6 @@ testsuite_run_bench(struct ctx *ctx, const struct test_suite *ts)
 	if (!ts->bench)
 		return TF_NOIMPL;
 
-	split_duration(ctx);
-
 	bres = (struct bench_results) { };
 
 	ts->bench(ctx, &bres);
@@ -272,14 +257,24 @@ testsuite_run_bench(struct ctx *ctx, const struct test_suite *ts)
 	if (ctx->fails)
 		return TF_FAIL;
 
-	verbose(ctx, "%s: syscalls = %llu, vdso calls = %llu\n", ts->name,
-	       (unsigned long long)bres.sys_interval.calls,
-	       (unsigned long long)bres.vdso_interval.calls);
+	verbose(ctx,
+		"%s: syscalls = %llu, vdso calls = %llu, libc calls = %llu\n",
+		ts->name,
+		(unsigned long long)bres.sys_interval.calls,
+		(unsigned long long)bres.vdso_interval.calls,
+		(unsigned long long)bres.libc_interval.calls);
 
 	printf("%s system calls per second: %llu\n", ts->name,
 	       (unsigned long long)bres.sys_interval.calls_per_sec);
 
-	printf("%s vdso calls per second:   %llu (%.2LFx speedup)\n", ts->name,
+	printf("%s   libc calls per second: %llu (%.2LFx speedup)\n",
+	       ts->name,
+	       (unsigned long long)bres.libc_interval.calls_per_sec,
+	       (long double)bres.libc_interval.calls_per_sec /
+	       (long double)bres.sys_interval.calls_per_sec);
+
+	printf("%s   vdso calls per second: %llu (%.2LFx speedup)\n",
+	       ts->name,
 	       (unsigned long long)bres.vdso_interval.calls_per_sec,
 	       (long double)bres.vdso_interval.calls_per_sec /
 	       (long double)bres.sys_interval.calls_per_sec);
