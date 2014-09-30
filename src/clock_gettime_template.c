@@ -144,6 +144,9 @@ static void clock_gettime_bench(struct ctx *ctx, struct bench_results *res)
 	BENCH(ctx, clock_gettime_fn(CLOCK_ID, &ts),
 	      &res->vdso_interval);
 
+	BENCH(ctx, clock_gettime(CLOCK_ID, &ts),
+	      &res->libc_interval);
+
 	BENCH(ctx, clock_gettime_syscall_wrapper(CLOCK_ID, &ts),
 	      &res->sys_interval);
 }

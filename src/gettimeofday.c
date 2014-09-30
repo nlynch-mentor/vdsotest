@@ -147,6 +147,9 @@ static void gettimeofday_bench(struct ctx *ctx, struct bench_results *res)
 	BENCH(ctx, gettimeofday_fn(&tv, NULL),
 	      &res->vdso_interval);
 
+	BENCH(ctx, gettimeofday(&tv, NULL),
+	      &res->libc_interval);
+
 	BENCH(ctx, gettimeofday_syscall_wrapper(&tv, NULL),
 	      &res->sys_interval);
 }

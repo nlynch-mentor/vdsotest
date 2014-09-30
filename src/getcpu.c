@@ -92,6 +92,9 @@ static void getcpu_bench(struct ctx *ctx, struct bench_results *res)
 	BENCH(ctx, getcpu(&cpu, NULL, NULL),
 	      &res->vdso_interval);
 
+	BENCH(ctx, sched_getcpu(),
+	      &res->libc_interval);
+
 	BENCH(ctx, getcpu_syscall_wrapper(&cpu, NULL, NULL),
 	      &res->sys_interval);
 }
