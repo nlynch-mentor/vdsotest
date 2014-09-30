@@ -87,14 +87,13 @@ static void force_migrate(const struct ctx *ctx, cpu_set_t *cpus_allowed)
 
 static void getcpu_bench(struct ctx *ctx, struct bench_results *res)
 {
-	uint64_t calls;
 	unsigned int cpu;
 
 	BENCH(ctx, getcpu(&cpu, NULL, NULL),
-	      &res->vdso_interval, calls);
+	      &res->vdso_interval);
 
 	BENCH(ctx, getcpu_syscall_wrapper(&cpu, NULL, NULL),
-	      &res->sys_interval, calls);
+	      &res->sys_interval);
 }
 
 static void subtimer_set_duration(const struct ctx *ctx, struct timespec *ts)

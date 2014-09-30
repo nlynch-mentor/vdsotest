@@ -140,13 +140,12 @@ static void clock_gettime_verify(struct ctx *ctx)
 static void clock_gettime_bench(struct ctx *ctx, struct bench_results *res)
 {
 	struct timespec ts;
-	uint64_t calls;
 
 	BENCH(ctx, clock_gettime_fn(CLOCK_ID, &ts),
-	      &res->vdso_interval, calls);
+	      &res->vdso_interval);
 
 	BENCH(ctx, clock_gettime_syscall_wrapper(CLOCK_ID, &ts),
-	      &res->sys_interval, calls);
+	      &res->sys_interval);
 }
 
 static void sys_clock_gettime_simple(void *arg, struct syscall_result *res)

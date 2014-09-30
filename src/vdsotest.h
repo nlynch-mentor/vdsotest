@@ -83,19 +83,22 @@ static inline void bench_interval_end(struct bench_interval *ival, uint64_t call
 	ival->calls_per_sec = (ival->calls * NSEC_PER_SEC) / ival->duration_nsec;
 }
 
-#define BENCH_INTERNAL(ctxp, fncall, count)		\
+#define BENCH_INTERNAL(ctx, fncall, counter)		\
 	do {						\
 		(void)fncall;				\
-		count++;				\
-	} while (!test_should_stop((ctxp)))
+		(counter)++;				\
+	} while (!test_should_stop(ctx))
 
-#define BENCH(ctxp, fncall, ival, count)		\
+#define BENCH(ctx, fncall, ival)			\
 	do {						\
-		count = 0;				\
+		struct bench_interval *ivalp = (ival);	\
+		struct ctx *ctxp = (ctx);		\
+		uint64_t calls = 0;			\
+							\
 		ctx_start_timer(ctxp);			\
-		bench_interval_begin(ival);		\
-		BENCH_INTERNAL(ctxp, fncall, count);	\
-		bench_interval_end(ival, count);	\
+		bench_interval_begin(ivalp);		\
+		BENCH_INTERNAL(ctxp, fncall, calls);	\
+		bench_interval_end(ivalp, calls);	\
 		ctx_cleanup_timer(ctxp);		\
 	} while (0)
 

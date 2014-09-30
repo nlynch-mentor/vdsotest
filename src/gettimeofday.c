@@ -143,13 +143,12 @@ static void gettimeofday_verify(struct ctx *ctx)
 static void gettimeofday_bench(struct ctx *ctx, struct bench_results *res)
 {
 	struct timeval tv;
-	uint64_t calls;
 
 	BENCH(ctx, gettimeofday_fn(&tv, NULL),
-	      &res->vdso_interval, calls);
+	      &res->vdso_interval);
 
 	BENCH(ctx, gettimeofday_syscall_wrapper(&tv, NULL),
-	      &res->sys_interval, calls);
+	      &res->sys_interval);
 }
 
 struct gettimeofday_args {
