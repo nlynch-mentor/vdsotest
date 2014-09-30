@@ -32,13 +32,17 @@
 #include "compiler.h"
 #include "vdsotest.h"
 
+static int (*getcpu_vdso)(unsigned *cpu, unsigned *node, void *tcache);
+
+static bool vdso_has_getcpu(void)
+{
+	return getcpu_vdso != NULL;
+}
+
 static int getcpu_syscall_wrapper(unsigned *cpu, unsigned *node, void *tcache)
 {
 	return syscall(SYS_getcpu, cpu, node, tcache);
 }
-
-static int (*getcpu)(unsigned *cpu, unsigned *node, void *tcache) =
-	getcpu_syscall_wrapper;
 
 static void getcpu_syscall_nofail(unsigned *cpu, unsigned *node, void *tcache)
 {
@@ -49,11 +53,11 @@ static void getcpu_syscall_nofail(unsigned *cpu, unsigned *node, void *tcache)
 		error(EXIT_FAILURE, errno, "SYS_getcpu");
 }
 
-static void getcpu_nofail(unsigned *cpu, unsigned *node, void *tcache)
+static void getcpu_vdso_nofail(unsigned *cpu, unsigned *node, void *tcache)
 {
 	int err;
 
-	err = getcpu(cpu, node, tcache);
+	err = getcpu_vdso(cpu, node, tcache);
 	if (err)
 		error(EXIT_FAILURE, errno, "getcpu");
 }
@@ -89,8 +93,10 @@ static void getcpu_bench(struct ctx *ctx, struct bench_results *res)
 {
 	unsigned int cpu;
 
-	BENCH(ctx, getcpu(&cpu, NULL, NULL),
-	      &res->vdso_interval);
+	if (vdso_has_getcpu()) {
+		BENCH(ctx, getcpu_vdso(&cpu, NULL, NULL),
+		      &res->vdso_interval);
+	}
 
 	BENCH(ctx, sched_getcpu(),
 	      &res->libc_interval);
@@ -192,7 +198,11 @@ static void getcpu_verify(struct ctx *ctx)
 				log_failure(ctx, "SYS_getcpu returned "
 					    "unallowed cpu %d\n", cpu);
 			}
-			getcpu_nofail(&cpu, NULL, NULL);
+
+			if (!vdso_has_getcpu())
+				continue;
+
+			getcpu_vdso_nofail(&cpu, NULL, NULL);
 
 			if (!CPU_ISSET(cpu, &cpus_allowed)) {
 				log_failure(ctx, "sched_getcpu returned "
@@ -243,7 +253,7 @@ static void do_getcpu(void *arg, struct syscall_result *res)
 		err = getcpu_syscall_wrapper(args->cpu, args->node,
 					     args->tcache);
 	} else {
-		err = getcpu(args->cpu, args->node, args->tcache);
+		err = getcpu_vdso(args->cpu, args->node, args->tcache);
 	}
 
 	record_syscall_result(res, err, errno);
@@ -384,7 +394,7 @@ static void getcpu_abi_cpu_node(struct ctx *ctx,
 		 */
 		signal_set.mask = 0;
 
-		xasprintf(&desc, "SYS_getcpu(%s, %s, %s)",
+		xasprintf(&desc, "getcpu(%s, %s, %s) (syscall)",
 			  getcpu_arg_type_str[cpu_type],
 			  getcpu_arg_type_str[node_type],
 			  getcpu_arg_type_str[tc_type]);
@@ -402,6 +412,9 @@ static void getcpu_abi_cpu_node(struct ctx *ctx,
 
 		xfree(desc);
 
+		if (!vdso_has_getcpu())
+			continue;
+
 		/* Now do libc/vDSO */
 
 		args.force_syscall = false;
@@ -409,7 +422,7 @@ static void getcpu_abi_cpu_node(struct ctx *ctx,
 		if (getcpu_args_should_fault(cpu_type, node_type, tc_type))
 			signal_set.mask |= SIGNO_TO_BIT(SIGSEGV);
 
-		xasprintf(&desc, "getcpu(%s, %s, %s)",
+		xasprintf(&desc, "getcpu(%s, %s, %s) (VDSO)",
 			  getcpu_arg_type_str[cpu_type],
 			  getcpu_arg_type_str[node_type],
 			  getcpu_arg_type_str[tc_type]);
@@ -459,7 +472,7 @@ static void getcpu_abi(struct ctx *ctx)
 
 static void getcpu_notes(struct ctx *ctx)
 {
-	if (getcpu == getcpu_syscall_wrapper)
+	if (!vdso_has_getcpu())
 		printf("Note: vDSO version of getcpu not found\n");
 }
 
@@ -471,7 +484,7 @@ static const char *getcpu_vdso_names[] = {
 
 static void getcpu_bind(void *sym)
 {
-	getcpu = sym;
+	getcpu_vdso = sym;
 }
 
 static const struct test_suite getcpu_ts = {

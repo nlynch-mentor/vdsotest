@@ -30,13 +30,17 @@
 #include "compiler.h"
 #include "vdsotest.h"
 
+static int (*clock_getres_vdso)(clockid_t id, struct timespec *ts);
+
+static bool vdso_has_clock_getres(void)
+{
+	return clock_getres_vdso != NULL;
+}
+
 static int clock_getres_syscall_wrapper(clockid_t id, struct timespec *ts)
 {
 	return syscall(SYS_clock_getres, id, ts);
 }
-
-static int (*clock_getres_fn)(clockid_t id, struct timespec *ts) =
-	clock_getres_syscall_wrapper;
 
 static void clock_getres_syscall_nofail(clockid_t id, struct timespec *ts)
 {
@@ -47,11 +51,11 @@ static void clock_getres_syscall_nofail(clockid_t id, struct timespec *ts)
 		error(EXIT_FAILURE, errno, "SYS_clock_getres");
 }
 
-static void clock_getres_nofail(clockid_t id, struct timespec *ts)
+static void clock_getres_vdso_nofail(clockid_t id, struct timespec *ts)
 {
 	int err;
 
-	err = clock_getres_fn(id, ts);
+	err = clock_getres_vdso(id, ts);
 	if (err)
 		error(EXIT_FAILURE, errno, "clock_getres");
 }
@@ -80,7 +84,6 @@ static void clock_getres_verify(struct ctx *ctx)
 		struct timespec vres;
 
 		clock_getres_syscall_nofail(CLOCK_ID, &kres);
-		clock_getres_nofail(CLOCK_ID, &vres);
 
 		/* Check assumptions */
 		if (!timespecs_equal(&kres, &sanity)) {
@@ -91,10 +94,11 @@ static void clock_getres_verify(struct ctx *ctx)
 			      kres.tv_sec, kres.tv_nsec);
 		}
 
-		if (timespecs_equal(&kres, &vres)) {
-			debug(ctx, "clock resolutions match ([%ld, %ld])\n",
-				kres.tv_sec, kres.tv_nsec);
-		} else {
+		if (!vdso_has_clock_getres())
+			continue;
+
+		clock_getres_vdso_nofail(CLOCK_ID, &vres);
+		if (!timespecs_equal(&kres, &vres)) {
 			log_failure(ctx, "clock resolutions differ:\n"
 				    "\t[%ld, %ld] (kernel)\n"
 				    "\t[%ld, %ld] (vDSO)\n",
@@ -110,8 +114,10 @@ static void clock_getres_bench(struct ctx *ctx, struct bench_results *res)
 {
 	struct timespec ts;
 
-	BENCH(ctx, clock_getres_fn(CLOCK_ID, &ts),
-	      &res->vdso_interval);
+	if (vdso_has_clock_getres()) {
+		BENCH(ctx, clock_getres_vdso(CLOCK_ID, &ts),
+		      &res->vdso_interval);
+	}
 
 	BENCH(ctx, clock_getres(CLOCK_ID, &ts),
 	      &res->libc_interval);
@@ -141,23 +147,23 @@ static void sys_clock_getres_prot(void *arg, struct syscall_result *res)
 	free_page(buf);
 }
 
-static void clock_getres_simple(void *arg, struct syscall_result *res)
+static void vdso_clock_getres_simple(void *arg, struct syscall_result *res)
 {
 	int err;
 
 	syscall_prepare();
-	err = clock_getres_fn(CLOCK_ID, arg);
+	err = clock_getres_vdso(CLOCK_ID, arg);
 	record_syscall_result(res, err, errno);
 }
 
-static void clock_getres_prot(void *arg, struct syscall_result *res)
+static void vdso_clock_getres_prot(void *arg, struct syscall_result *res)
 {
 	void *buf;
 	int err;
 
 	buf = alloc_page((int)(unsigned long)arg);
 	syscall_prepare();
-	err = clock_getres_fn(CLOCK_ID, buf);
+	err = clock_getres_vdso(CLOCK_ID, buf);
 	record_syscall_result(res, err, errno);
 	free_page(buf);
 }
@@ -169,7 +175,7 @@ static void clock_getres_bogus_id(void *arg, struct syscall_result *res)
 
 	syscall_prepare();
 	err = arg ? clock_getres_syscall_wrapper((clockid_t)-1, &ts) :
-		clock_getres_fn((clockid_t)-1, &ts);
+		clock_getres_vdso((clockid_t)-1, &ts);
 
 	record_syscall_result(res, err, errno);
 }
@@ -180,21 +186,21 @@ static void clock_getres_bogus_id_null(void *arg, struct syscall_result *res)
 
 	syscall_prepare();
 	err = arg ? clock_getres_syscall_wrapper((clockid_t)-1, NULL) :
-		clock_getres_fn((clockid_t)-1, NULL);
+		clock_getres_vdso((clockid_t)-1, NULL);
 
 	record_syscall_result(res, err, errno);
 }
 
-static const struct child_params clock_getres_abi_params[] = {
+static const struct child_params sys_clock_getres_abi_params[] = {
 	/* Kernel sanity checks */
 
 	{
-		.desc = "passing NULL to sys_clock_getres",
+		.desc = "passing NULL to clock_getres (syscall)",
 		.func = sys_clock_getres_simple,
 		.arg = NULL,
 	},
 	{
-		.desc = "passing UINTPTR_MAX to sys_clock_getres",
+		.desc = "passing UINTPTR_MAX to clock_getres (syscall)",
 		.func = sys_clock_getres_simple,
 		.arg = (void *)ADDR_SPACE_END,
 		.expected_ret = -1,
@@ -204,7 +210,7 @@ static const struct child_params clock_getres_abi_params[] = {
 		},
 	},
 	{
-		.desc = "passing PROT_NONE page to sys_clock_getres",
+		.desc = "passing PROT_NONE page to clock_getres (syscall)",
 		.func = sys_clock_getres_prot,
 		.arg = (void *)PROT_NONE,
 		.expected_ret = -1,
@@ -214,7 +220,7 @@ static const struct child_params clock_getres_abi_params[] = {
 		},
 	},
 	{
-		.desc = "passing PROT_READ page to sys_clock_getres",
+		.desc = "passing PROT_READ page to clock_getres (syscall)",
 		.func = sys_clock_getres_prot,
 		.arg = (void *)PROT_READ,
 		.expected_ret = -1,
@@ -227,7 +233,7 @@ static const struct child_params clock_getres_abi_params[] = {
 		/* This will be duplicated across the different clock
 		 * id modules.  Oh well.
 		 */
-		.desc = "passing bogus clock id to SYS_clock_getres",
+		.desc = "passing bogus clock id to clock_getres (syscall)",
 		.func = clock_getres_bogus_id,
 		.arg = (void *)true, /* force syscall */
 		.expected_ret = -1,
@@ -235,23 +241,25 @@ static const struct child_params clock_getres_abi_params[] = {
 	},
 	{
 		/* This one too. */
-		.desc = "passing bogus clock id and NULL to SYS_clock_getres",
+		.desc = "passing bogus clock id and NULL to clock_getres (syscall)",
 		.func = clock_getres_bogus_id_null,
 		.arg = (void *)true, /* force syscall */
 		.expected_ret = -1,
 		.expected_errno = EINVAL,
 	},
+};
 
-	/* The below may be serviced by a vDSO, but not necessarily. */
+static const struct child_params vdso_clock_getres_abi_params[] = {
+	/* The below will be serviced by a vDSO, if present. */
 
 	{
-		.desc = "passing NULL to clock_getres",
-		.func = clock_getres_simple,
+		.desc = "passing NULL to clock_getres (VDSO)",
+		.func = vdso_clock_getres_simple,
 		.arg = NULL,
 	},
 	{
-		.desc = "passing UINTPTR_MAX to clock_getres",
-		.func = clock_getres_simple,
+		.desc = "passing UINTPTR_MAX to clock_getres (VDSO)",
+		.func = vdso_clock_getres_simple,
 		.arg = (void *)ADDR_SPACE_END,
 		.expected_ret = -1,
 		.expected_errno = EFAULT,
@@ -260,8 +268,8 @@ static const struct child_params clock_getres_abi_params[] = {
 		},
 	},
 	{
-		.desc = "passing PROT_NONE page to clock_getres",
-		.func = clock_getres_prot,
+		.desc = "passing PROT_NONE page to clock_getres (VDSO)",
+		.func = vdso_clock_getres_prot,
 		.arg = (void *)PROT_NONE,
 		.expected_ret = -1,
 		.expected_errno = EFAULT,
@@ -270,8 +278,8 @@ static const struct child_params clock_getres_abi_params[] = {
 		},
 	},
 	{
-		.desc = "passing PROT_READ page to clock_getres",
-		.func = clock_getres_prot,
+		.desc = "passing PROT_READ page to clock_getres (VDSO)",
+		.func = vdso_clock_getres_prot,
 		.arg = (void *)PROT_READ,
 		.expected_ret = -1,
 		.expected_errno = EFAULT,
@@ -283,7 +291,7 @@ static const struct child_params clock_getres_abi_params[] = {
 		/* This will be duplicated across the different clock
 		 * id modules.  Oh well.
 		 */
-		.desc = "passing bogus clock id to clock_getres",
+		.desc = "passing bogus clock id to clock_getres (VDSO)",
 		.func = clock_getres_bogus_id,
 		.arg = (void *)false, /* use vdso */
 		.expected_ret = -1,
@@ -291,7 +299,7 @@ static const struct child_params clock_getres_abi_params[] = {
 	},
 	{
 		/* This one too. */
-		.desc = "passing bogus clock id and NULL to clock_getres",
+		.desc = "passing bogus clock id and NULL to clock_getres (VDSO)",
 		.func = clock_getres_bogus_id_null,
 		.arg = (void *)false, /* use vdso */
 		.expected_ret = -1,
@@ -303,13 +311,18 @@ static void clock_getres_abi(struct ctx *ctx)
 {
 	unsigned int i;
 
-	for (i = 0; i < ARRAY_SIZE(clock_getres_abi_params); i++)
-		run_as_child(ctx, &clock_getres_abi_params[i]);
+	for (i = 0; i < ARRAY_SIZE(sys_clock_getres_abi_params); i++)
+		run_as_child(ctx, &sys_clock_getres_abi_params[i]);
+
+	if (vdso_has_clock_getres()) {
+		for (i = 0; i < ARRAY_SIZE(vdso_clock_getres_abi_params); i++)
+			run_as_child(ctx, &vdso_clock_getres_abi_params[i]);
+	}
 }
 
 static void clock_getres_notes(struct ctx *ctx)
 {
-	if (clock_getres_fn == clock_getres_syscall_wrapper)
+	if (!vdso_has_clock_getres())
 		printf("Note: vDSO version of clock_getres not found\n");
 }
 
@@ -321,7 +334,7 @@ static const char *clock_getres_vdso_names[] = {
 
 static void clock_getres_bind(void *sym)
 {
-	clock_getres_fn = sym;
+	clock_getres_vdso = sym;
 }
 
 static const struct test_suite clock_getres_ts = {
