@@ -62,7 +62,7 @@ struct bench_results {
 	struct bench_interval sys_interval;
 };
 
-static inline void __bench_interval_begin(struct bench_interval *ival)
+static inline void bench_interval_begin(struct bench_interval *ival)
 {
 	int err;
 
@@ -70,12 +70,6 @@ static inline void __bench_interval_begin(struct bench_interval *ival)
 	if (err)
 		error(EXIT_FAILURE, errno, "clock_gettime");
 }
-
-#define bench_interval_begin(ival, calls)	\
-	do {					\
-		calls = 0;			\
-		__bench_interval_begin(ival);	\
-	} while (0)
 
 static inline void bench_interval_end(struct bench_interval *ival, uint64_t calls)
 {
@@ -99,7 +93,7 @@ static inline void bench_interval_end(struct bench_interval *ival, uint64_t call
 	do {						\
 		count = 0;				\
 		ctx_start_timer(ctxp);			\
-		__bench_interval_begin(ival);		\
+		bench_interval_begin(ival);		\
 		BENCH_INTERNAL(ctxp, fncall, count);	\
 		bench_interval_end(ival, count);	\
 		ctx_cleanup_timer(ctxp);		\
