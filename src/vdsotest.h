@@ -89,6 +89,22 @@ static inline void bench_interval_end(struct bench_interval *ival, uint64_t call
 	ival->calls_per_sec = (ival->calls * NSEC_PER_SEC) / ival->duration_nsec;
 }
 
+#define BENCH_INTERNAL(ctxp, fncall, count)		\
+	do {						\
+		(void)fncall;				\
+		count++;				\
+	} while (!test_should_stop((ctxp)))
+
+#define BENCH(ctxp, fncall, ival, count)		\
+	do {						\
+		count = 0;				\
+		ctx_start_timer(ctxp);			\
+		__bench_interval_begin(ival);		\
+		BENCH_INTERNAL(ctxp, fncall, count);	\
+		bench_interval_end(ival, count);	\
+		ctx_cleanup_timer(ctxp);		\
+	} while (0)
+
 struct test_suite {
 	const char *name; /* name of the API under test */
 
