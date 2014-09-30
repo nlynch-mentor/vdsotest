@@ -231,28 +231,28 @@ static const struct child_params sys_clock_gettime_abi_params[] = {
 	/* Kernel sanity checks */
 
 	{
-		.desc = "passing NULL to SYS_clock_gettime",
+		.desc = "passing NULL to clock_gettime (syscall)",
 		.func = sys_clock_gettime_simple,
 		.arg = NULL,
 		.expected_ret = -1,
 		.expected_errno = EFAULT,
 	},
 	{
-		.desc = "passing UINTPTR_MAX to SYS_clock_gettime",
+		.desc = "passing UINTPTR_MAX to clock_gettime (syscall)",
 		.func = sys_clock_gettime_simple,
 		.arg = (void *)ADDR_SPACE_END,
 		.expected_ret = -1,
 		.expected_errno = EFAULT,
 	},
 	{
-		.desc = "passing PROT_NONE page to SYS_clock_gettime",
+		.desc = "passing PROT_NONE page to clock_gettime (syscall)",
 		.func = sys_clock_gettime_prot,
 		.arg = (void *)PROT_NONE,
 		.expected_ret = -1,
 		.expected_errno = EFAULT,
 	},
 	{
-		.desc = "passing PROT_READ page to SYS_clock_gettime",
+		.desc = "passing PROT_READ page to clock_gettime (syscall)",
 		.func = sys_clock_gettime_prot,
 		.arg = (void *)PROT_READ,
 		.expected_ret = -1,
@@ -262,7 +262,7 @@ static const struct child_params sys_clock_gettime_abi_params[] = {
 		/* This will be duplicated across the different clock
 		 * id modules.  Oh well.
 		 */
-		.desc = "passing bogus clock id to SYS_clock_gettime",
+		.desc = "passing bogus clock id to clock_gettime (syscall)",
 		.func = clock_gettime_bogus_id,
 		.arg = (void *)true, /* force syscall */
 		.expected_ret = -1,
@@ -270,7 +270,7 @@ static const struct child_params sys_clock_gettime_abi_params[] = {
 	},
 	{
 		/* This one too. */
-		.desc = "passing bogus clock id and NULL to SYS_clock_gettime",
+		.desc = "passing bogus clock id and NULL to clock_gettime (syscall)",
 		.func = clock_gettime_bogus_id_null,
 		.arg = (void *)true, /* force syscall */
 		.expected_ret = -1,
@@ -282,7 +282,7 @@ static const struct child_params vdso_clock_gettime_abi_params[] = {
 	/* The below will be serviced by a vDSO, if present. */
 
 	{
-		.desc = "passing NULL to clock_gettime",
+		.desc = "passing NULL to clock_gettime (VDSO)",
 		.func = vdso_clock_gettime_simple,
 		.arg = NULL,
 		.expected_ret = -1,
@@ -292,7 +292,7 @@ static const struct child_params vdso_clock_gettime_abi_params[] = {
 		},
 	},
 	{
-		.desc = "passing UINTPTR_MAX to clock_gettime",
+		.desc = "passing UINTPTR_MAX to clock_gettime (VDSO)",
 		.func = vdso_clock_gettime_simple,
 		.arg = (void *)ADDR_SPACE_END,
 		.expected_ret = -1,
@@ -302,7 +302,7 @@ static const struct child_params vdso_clock_gettime_abi_params[] = {
 		},
 	},
 	{
-		.desc = "passing PROT_NONE page to clock_gettime",
+		.desc = "passing PROT_NONE page to clock_gettime (VDSO)",
 		.func = vdso_clock_gettime_prot,
 		.arg = (void *)PROT_NONE,
 		.expected_ret = -1,
@@ -312,7 +312,7 @@ static const struct child_params vdso_clock_gettime_abi_params[] = {
 		},
 	},
 	{
-		.desc = "passing PROT_READ page to clock_gettime",
+		.desc = "passing PROT_READ page to clock_gettime (VDSO)",
 		.func = vdso_clock_gettime_prot,
 		.arg = (void *)PROT_READ,
 		.expected_ret = -1,
@@ -325,7 +325,7 @@ static const struct child_params vdso_clock_gettime_abi_params[] = {
 		/* This will be duplicated across the different clock
 		 * id modules.  Oh well.
 		 */
-		.desc = "passing bogus clock id to clock_gettime",
+		.desc = "passing bogus clock id to clock_gettime (VDSO)",
 		.func = clock_gettime_bogus_id,
 		.arg = (void *)false, /* use vdso */
 		.expected_ret = -1,
@@ -333,7 +333,7 @@ static const struct child_params vdso_clock_gettime_abi_params[] = {
 	},
 	{
 		/* This one too. */
-		.desc = "passing bogus clock id and NULL to clock_gettime",
+		.desc = "passing bogus clock id and NULL to clock_gettime (VDSO)",
 		.func = clock_gettime_bogus_id_null,
 		.arg = (void *)false, /* use vdso */
 		.expected_ret = -1,
