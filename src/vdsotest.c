@@ -264,21 +264,24 @@ testsuite_run_bench(struct ctx *ctx, const struct test_suite *ts)
 		(unsigned long long)bres.vdso_interval.calls,
 		(unsigned long long)bres.libc_interval.calls);
 
-	printf("%s: system calls per second: %llu\n", ts->name,
-	       (unsigned long long)bres.sys_interval.calls_per_sec);
+	printf("%s: system calls per second: %llu (%llu nsec/call)\n",
+	       ts->name,
+	       (unsigned long long)bres.sys_interval.calls_per_sec,
+	       (unsigned long long)bres.sys_interval.duration_nsec /
+		bres.sys_interval.calls);
 
-	printf("%s:   libc calls per second: %llu (%.2LFx speedup)\n",
+	printf("%s:   libc calls per second: %llu (%llu nsec/call)\n",
 	       ts->name,
 	       (unsigned long long)bres.libc_interval.calls_per_sec,
-	       (long double)bres.libc_interval.calls_per_sec /
-	       (long double)bres.sys_interval.calls_per_sec);
+	       (unsigned long long)bres.libc_interval.duration_nsec /
+	       bres.libc_interval.calls);
 
 	if (bres.vdso_interval.calls > 0) {
-		printf("%s:   vdso calls per second: %llu (%.2LFx speedup)\n",
+		printf("%s:   vdso calls per second: %llu (%llu nsec/call)\n",
 		       ts->name,
 		       (unsigned long long)bres.vdso_interval.calls_per_sec,
-		       (long double)bres.vdso_interval.calls_per_sec /
-		       (long double)bres.sys_interval.calls_per_sec);
+		       (unsigned long long)bres.vdso_interval.duration_nsec /
+		       bres.vdso_interval.calls);
 	} else {
 		printf("%s:   vdso not tested\n", ts->name);
 	}
