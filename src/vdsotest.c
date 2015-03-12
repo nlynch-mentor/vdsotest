@@ -243,6 +243,20 @@ enum testfunc_result {
 	TF_NOIMPL, /* Function not implemented */
 };
 
+static void bench_report(const char *api, const char *impl,
+			 const struct bench_interval *ival)
+{
+	if (ival->calls == 0) {
+		printf("%s: %s not tested\n", api, impl);
+		return;
+	}
+
+	printf("%s: %s calls per second: %llu (%llu nsec/call)\n",
+	       api, impl,
+	       (unsigned long long)ival->calls_per_sec,
+	       (unsigned long long)ival->duration_nsec / ival->calls);
+}
+
 static enum testfunc_result
 testsuite_run_bench(struct ctx *ctx, const struct test_suite *ts)
 {
@@ -264,27 +278,9 @@ testsuite_run_bench(struct ctx *ctx, const struct test_suite *ts)
 		(unsigned long long)bres.vdso_interval.calls,
 		(unsigned long long)bres.libc_interval.calls);
 
-	printf("%s: system calls per second: %llu (%llu nsec/call)\n",
-	       ts->name,
-	       (unsigned long long)bres.sys_interval.calls_per_sec,
-	       (unsigned long long)bres.sys_interval.duration_nsec /
-		bres.sys_interval.calls);
-
-	printf("%s:   libc calls per second: %llu (%llu nsec/call)\n",
-	       ts->name,
-	       (unsigned long long)bres.libc_interval.calls_per_sec,
-	       (unsigned long long)bres.libc_interval.duration_nsec /
-	       bres.libc_interval.calls);
-
-	if (bres.vdso_interval.calls > 0) {
-		printf("%s:   vdso calls per second: %llu (%llu nsec/call)\n",
-		       ts->name,
-		       (unsigned long long)bres.vdso_interval.calls_per_sec,
-		       (unsigned long long)bres.vdso_interval.duration_nsec /
-		       bres.vdso_interval.calls);
-	} else {
-		printf("%s:   vdso not tested\n", ts->name);
-	}
+	bench_report(ts->name, "system", &bres.sys_interval);
+	bench_report(ts->name, "  libc", &bres.libc_interval);
+	bench_report(ts->name, "  vdso", &bres.vdso_interval);
 
 	return TF_OK;
 }
