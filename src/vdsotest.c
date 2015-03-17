@@ -247,7 +247,7 @@ static void bench_report(const char *api, const char *impl,
 			 const struct bench_interval *ival)
 {
 	if (ival->calls == 0) {
-		printf("%s: %s not tested\n", api, impl);
+		printf("%s: %s: not tested\n", api, impl);
 		return;
 	}
 
