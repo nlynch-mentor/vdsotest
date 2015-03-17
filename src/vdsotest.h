@@ -54,7 +54,6 @@ struct bench_interval {
 	struct timespec begin;
 	struct timespec end;
 	uint64_t duration_nsec;
-	uint64_t calls_per_sec;
 };
 
 struct bench_results {
@@ -81,7 +80,6 @@ static inline void bench_interval_end(struct bench_interval *ival, uint64_t call
 		error(EXIT_FAILURE, errno, "clock_gettime");
 	ival->calls = calls;
 	ival->duration_nsec = timespec_delta_nsec(&ival->begin, &ival->end);
-	ival->calls_per_sec = (ival->calls * NSEC_PER_SEC) / ival->duration_nsec;
 }
 
 #define BENCH_INTERNAL(ctx, fncall, counter)		\
