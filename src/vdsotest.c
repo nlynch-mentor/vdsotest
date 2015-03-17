@@ -251,9 +251,8 @@ static void bench_report(const char *api, const char *impl,
 		return;
 	}
 
-	printf("%s: %s calls per second: %llu (%llu nsec/call)\n",
+	printf("%s: %s: %llu nsec/call\n",
 	       api, impl,
-	       (unsigned long long)ival->calls_per_sec,
 	       (unsigned long long)ival->duration_nsec / ival->calls);
 }
 
@@ -278,9 +277,9 @@ testsuite_run_bench(struct ctx *ctx, const struct test_suite *ts)
 		(unsigned long long)bres.vdso_interval.calls,
 		(unsigned long long)bres.libc_interval.calls);
 
-	bench_report(ts->name, "system", &bres.sys_interval);
-	bench_report(ts->name, "  libc", &bres.libc_interval);
-	bench_report(ts->name, "  vdso", &bres.vdso_interval);
+	bench_report(ts->name, "syscall", &bres.sys_interval);
+	bench_report(ts->name, "   libc", &bres.libc_interval);
+	bench_report(ts->name, "   vdso", &bres.vdso_interval);
 
 	return TF_OK;
 }
