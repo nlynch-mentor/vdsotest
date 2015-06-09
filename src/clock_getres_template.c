@@ -90,8 +90,8 @@ static void clock_getres_verify(struct ctx *ctx)
 			error(EXIT_FAILURE, 0,
 			      "clock resolution reported by kernel changed: "
 			      "from [%ld, %ld] to [%ld, %ld]",
-			      sanity.tv_sec, sanity.tv_nsec,
-			      kres.tv_sec, kres.tv_nsec);
+			      (long int)sanity.tv_sec, (long int)sanity.tv_nsec,
+			      (long int)kres.tv_sec, (long int)kres.tv_nsec);
 		}
 
 		if (!vdso_has_clock_getres())
@@ -102,8 +102,8 @@ static void clock_getres_verify(struct ctx *ctx)
 			log_failure(ctx, "clock resolutions differ:\n"
 				    "\t[%ld, %ld] (kernel)\n"
 				    "\t[%ld, %ld] (vDSO)\n",
-				    kres.tv_sec, kres.tv_nsec,
-				    vres.tv_sec, vres.tv_nsec);
+				    (long int)kres.tv_sec, (long int)kres.tv_nsec,
+				    (long int)vres.tv_sec, (long int)vres.tv_nsec);
 		}
 	}
 

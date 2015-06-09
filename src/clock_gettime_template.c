@@ -105,7 +105,7 @@ static void clock_gettime_verify(struct ctx *ctx)
 			log_failure(ctx, "timestamp obtained from libc/vDSO "
 				    "not normalized:\n"
 				    "\t[%ld, %ld]\n",
-				    now.tv_sec, now.tv_nsec);
+				    (long int)now.tv_sec, (long int)now.tv_nsec);
 		}
 
 		if (!timespecs_ordered(&prev, &now)) {
@@ -114,8 +114,8 @@ static void clock_gettime_verify(struct ctx *ctx)
 				    "previously obtained from kernel:\n"
 				    "\t[%ld, %ld] (kernel)\n"
 				    "\t[%ld, %ld] (vDSO)\n",
-				    prev.tv_sec, prev.tv_nsec,
-				    now.tv_sec, now.tv_nsec);
+				    (long int)prev.tv_sec, (long int)prev.tv_nsec,
+				    (long int)now.tv_sec, (long int)now.tv_nsec);
 		}
 
 	skip_vdso:
@@ -127,7 +127,7 @@ static void clock_gettime_verify(struct ctx *ctx)
 			log_failure(ctx, "timestamp obtained from kernel "
 				    "not normalized:\n"
 				    "\t[%ld, %ld]\n",
-				    now.tv_sec, now.tv_nsec);
+				    (long int)now.tv_sec, (long int)now.tv_nsec);
 		}
 
 		if (!timespecs_ordered(&prev, &now)) {
@@ -136,8 +136,8 @@ static void clock_gettime_verify(struct ctx *ctx)
 				    "previously obtained from libc/vDSO:\n"
 				    "\t[%ld, %ld] (vDSO)\n"
 				    "\t[%ld, %ld] (kernel)\n",
-				    prev.tv_sec, prev.tv_nsec,
-				    now.tv_sec, now.tv_nsec);
+				    (long int)prev.tv_sec, (long int)prev.tv_nsec,
+				    (long int)now.tv_sec, (long int)now.tv_nsec);
 		}
 
 	}

@@ -108,7 +108,7 @@ static void gettimeofday_verify(struct ctx *ctx)
 			log_failure(ctx, "timestamp obtained from libc/vDSO "
 				    "not normalized:\n"
 				    "\t[%ld, %ld]\n",
-				    now.tv_sec, now.tv_usec);
+				    (long int)now.tv_sec, (long int)now.tv_usec);
 		}
 
 		if (!timevals_ordered(&prev, &now)) {
@@ -117,8 +117,8 @@ static void gettimeofday_verify(struct ctx *ctx)
 				    "previously obtained from kernel:\n"
 				    "\t[%ld, %ld] (kernel)\n"
 				    "\t[%ld, %ld] (vDSO)\n",
-				    prev.tv_sec, prev.tv_usec,
-				    now.tv_sec, now.tv_usec);
+				    (long int)prev.tv_sec, (long int)prev.tv_usec,
+				    (long int)now.tv_sec, (long int)now.tv_usec);
 		}
 
 	skip_vdso:
@@ -130,7 +130,7 @@ static void gettimeofday_verify(struct ctx *ctx)
 			log_failure(ctx, "timestamp obtained from kernel "
 				    "not normalized:\n"
 				    "\t[%ld, %ld]\n",
-				    now.tv_sec, now.tv_usec);
+				    (long int)now.tv_sec, (long int)now.tv_usec);
 		}
 
 		if (!timevals_ordered(&prev, &now)) {
@@ -139,8 +139,8 @@ static void gettimeofday_verify(struct ctx *ctx)
 				    "previously obtained from libc/vDSO:\n"
 				    "\t[%ld, %ld] (vDSO)\n"
 				    "\t[%ld, %ld] (kernel)\n",
-				    prev.tv_sec, prev.tv_usec,
-				    now.tv_sec, now.tv_usec);
+				    (long int)prev.tv_sec, (long int)prev.tv_usec,
+				    (long int)now.tv_sec, (long int)now.tv_usec);
 		}
 
 	}
