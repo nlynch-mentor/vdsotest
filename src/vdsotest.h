@@ -159,18 +159,6 @@ struct syscall_result {
 static inline void record_syscall_result(struct syscall_result *res,
 					 int sr_ret, int sr_errno)
 {
-	/* Calling the vDSO directly instead of through libc can lead to:
-	 * - The vDSO code punts to the kernel (e.g. unrecognized clock id).
-	 * - The kernel returns an error (e.g. -22 (-EINVAL))
-	 * So we need to recognize this situation and fix things up.
-	 * Fortunately we're dealing only with syscalls that return -ve values
-	 * on error.
-	 */
-	if (sr_ret < 0 && sr_errno == 0) {
-		sr_errno = -sr_ret;
-		sr_ret = -1;
-	}
-
 	*res = (struct syscall_result) {
 		.sr_ret = sr_ret,
 		.sr_errno = sr_errno,

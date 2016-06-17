@@ -51,11 +51,16 @@ static void clock_getres_syscall_nofail(clockid_t id, struct timespec *ts)
 		error(EXIT_FAILURE, errno, "SYS_clock_getres");
 }
 
+static int clock_getres_vdso_wrapper(clockid_t id, struct timespec *ts)
+{
+	return DO_VDSO_CALL(clock_getres_vdso, int, 2, id, ts);
+}
+
 static void clock_getres_vdso_nofail(clockid_t id, struct timespec *ts)
 {
 	int err;
 
-	err = clock_getres_vdso(id, ts);
+	err = clock_getres_vdso_wrapper(id, ts);
 	if (err)
 		error(EXIT_FAILURE, errno, "clock_getres");
 }
@@ -115,7 +120,7 @@ static void clock_getres_bench(struct ctx *ctx, struct bench_results *res)
 	struct timespec ts;
 
 	if (vdso_has_clock_getres()) {
-		BENCH(ctx, clock_getres_vdso(CLOCK_ID, &ts),
+		BENCH(ctx, clock_getres_vdso_wrapper(CLOCK_ID, &ts),
 		      &res->vdso_interval);
 	}
 
@@ -152,7 +157,7 @@ static void vdso_clock_getres_simple(void *arg, struct syscall_result *res)
 	int err;
 
 	syscall_prepare();
-	err = clock_getres_vdso(CLOCK_ID, arg);
+	err = clock_getres_vdso_wrapper(CLOCK_ID, arg);
 	record_syscall_result(res, err, errno);
 }
 
@@ -163,7 +168,7 @@ static void vdso_clock_getres_prot(void *arg, struct syscall_result *res)
 
 	buf = alloc_page((int)(unsigned long)arg);
 	syscall_prepare();
-	err = clock_getres_vdso(CLOCK_ID, buf);
+	err = clock_getres_vdso_wrapper(CLOCK_ID, buf);
 	record_syscall_result(res, err, errno);
 	free_page(buf);
 }
@@ -175,7 +180,7 @@ static void clock_getres_bogus_id(void *arg, struct syscall_result *res)
 
 	syscall_prepare();
 	err = arg ? clock_getres_syscall_wrapper((clockid_t)-1, &ts) :
-		clock_getres_vdso((clockid_t)-1, &ts);
+		clock_getres_vdso_wrapper((clockid_t)-1, &ts);
 
 	record_syscall_result(res, err, errno);
 }
@@ -186,7 +191,7 @@ static void clock_getres_bogus_id_null(void *arg, struct syscall_result *res)
 
 	syscall_prepare();
 	err = arg ? clock_getres_syscall_wrapper((clockid_t)-1, NULL) :
-		clock_getres_vdso((clockid_t)-1, NULL);
+		clock_getres_vdso_wrapper((clockid_t)-1, NULL);
 
 	record_syscall_result(res, err, errno);
 }
