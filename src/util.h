@@ -32,6 +32,89 @@
 
 #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
 
+#ifdef __powerpc__
+
+#define IS_VDSO_ERR(rval, err) (err & (1 << 28))
+
+#define VDSO_ERR(rval,err) rval
+
+/*
+ * GPLv2 or later glibc macro used here and intentionally kept similar
+ * so at to not diverge to ease any future merging.
+ * Start glibc/sysdeps/unix/sysv/linux/powerpc/powerpc64/sysdep.h
+ */
+#define VDSO_CALL(funcptr, err, type, nr, args...)                  \
+	({                                                              \
+	register void *r0  __asm__ ("r0");                              \
+	register long int r3  __asm__ ("r3");                           \
+	register long int r4  __asm__ ("r4");                           \
+	register long int r5  __asm__ ("r5");                           \
+	register long int r6  __asm__ ("r6");                           \
+	register long int r7  __asm__ ("r7");                           \
+	register long int r8  __asm__ ("r8");                           \
+	register type rval  __asm__ ("r3");                             \
+	LOADARGS_##nr (funcptr, args);                                  \
+	__asm__ __volatile__                                            \
+	("mtctr %0\n\t"                                                 \
+	 "bctrl\n\t"                                                    \
+	 "mfcr  %0\n\t"                                                 \
+	    : "+r" (r0), "+r" (r3), "+r" (r4), "+r" (r5), "+r" (r6),    \
+	      "+r" (r7), "+r" (r8)                                      \
+	    :                                                           \
+	    : "r9", "r10", "r11", "r12", "cr0", "ctr", "lr", "memory"); \
+	err = (long int) r0;                                            \
+	__asm__ __volatile__ ("" : "=r" (rval) : "r" (r3));             \
+	rval;                                                           \
+	})
+
+#define LOADARGS_0(name, dummy)                                     \
+	r0 = name
+#define LOADARGS_1(name, __arg1)                                    \
+	long int arg1 = (long int) (__arg1);                            \
+	LOADARGS_0(name, 0);                                            \
+	r3 = arg1
+#define LOADARGS_2(name, __arg1, __arg2)                            \
+	long int arg2 = (long int) (__arg2);                            \
+	LOADARGS_1(name, __arg1);                                       \
+	r4 = arg2
+
+/*
+ *  End glibc/sysdeps/unix/sysv/linux/powerpc/powerpc64/sysdep.h
+ */
+
+#else
+
+/* This retains current bevaiour which may be very x86 centric */
+
+/*
+ * Calling the vDSO directly instead of through libc can lead to:
+ * - The vDSO code punts to the kernel (e.g. unrecognized clock id).
+ * - The kernel returns an error (e.g. -22 (-EINVAL)) So we need to
+ *   recognize this situation and fix things up.  Fortunately we're
+ *   dealing only with syscalls that return -ve values on error.
+ */
+
+#define IS_VDSO_ERR(rval, err) (rval < 0)
+
+#define VDSO_ERR(rval, err) -err
+
+#define VDSO_CALL(funcptr, err, type, nr, args...) \
+	err = funcptr(args)
+
+#endif
+
+#define DO_VDSO_CALL(funcptr, type, nr, args...)    \
+	({                                              \
+	long int err;                                   \
+	type v_ret;                                     \
+	v_ret = VDSO_CALL(funcptr, err, type, nr, args); \
+	if (IS_VDSO_ERR(v_ret, err)) {                  \
+		errno = VDSO_ERR(v_ret, err);               \
+		v_ret = -1;                                 \
+	}                                               \
+	v_ret;                                          \
+	})
+
 void *xmalloc(size_t sz);
 void *xzmalloc(size_t sz);
 void *xrealloc(void *ptr, size_t sz);
