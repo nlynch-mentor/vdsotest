@@ -1,0 +1,10 @@
+#!/bin/sh
+
+: ${vdsotest:=@vdsotest@}
+
+opts="$@"
+
+for api in $($vdsotest list-apis)
+do
+    $vdsotest $opts $api bench
+done
