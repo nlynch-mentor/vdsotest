@@ -21,6 +21,9 @@ bin_PROGRAMS = vdsotest
 vdsotest_SOURCES = \
 	src/clock-monotonic.c \
 	src/clock-monotonic-coarse.c \
+	src/clock-monotonic-raw.c \
+	src/clock-tai.c \
+	src/clock-boottime.c \
 	src/clock-realtime.c \
 	src/clock-realtime-coarse.c \
 	src/compiler.h \
