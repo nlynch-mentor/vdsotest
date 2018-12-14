@@ -1,3 +1,10 @@
+vdsotest 0.3
+============
+Improve support for powerpc, s390, x32.
+Support for more clock IDs.
+Add wrapper script to facilitate benchmarking.
+Miscellaneous other fixes and improvements.
+
 vdsotest 0.2
 ============
 More options, more tests, better help.

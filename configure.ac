@@ -1,6 +1,6 @@
 AC_PREREQ(2.60)
 AC_INIT([vdsotest],
-        [0.2],
+        [0.3],
         [<nathan_lynch@mentor.com>],
         [vdsotest])
 AC_CONFIG_SRCDIR([src/util.h])
