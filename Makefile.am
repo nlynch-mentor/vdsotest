@@ -21,6 +21,9 @@ bin_PROGRAMS = vdsotest
 vdsotest_SOURCES = \
 	src/clock-monotonic.c \
 	src/clock-monotonic-coarse.c \
+	src/clock-monotonic-raw.c \
+	src/clock-tai.c \
+	src/clock-boottime.c \
 	src/clock-realtime.c \
 	src/clock-realtime-coarse.c \
 	src/compiler.h \
@@ -33,7 +36,7 @@ vdsotest_SOURCES = \
 
 vdsotest_LDADD = -lrt -ldl
 
-bin_SCRIPTS = vdsotest-all
+bin_SCRIPTS = vdsotest-all vdsotest-bench
 
 CLEANFILES += $(bin_SCRIPTS)
 
@@ -43,7 +46,12 @@ vdsotest-all: src/vdsotest-all.in Makefile
 	$(do_subst) < $(srcdir)/src/vdsotest-all.in > vdsotest-all
 	chmod +x vdsotest-all
 
+vdsotest-bench: src/vdsotest-bench.in Makefile
+	$(do_subst) < $(srcdir)/src/vdsotest-bench.in > vdsotest-bench
+	chmod +x vdsotest-bench
+
 EXTRA_DIST += \
 	src/clock_getres_template.c \
 	src/clock_gettime_template.c \
-	src/vdsotest-all.in
+	src/vdsotest-all.in \
+	src/vdsotest-bench.in
